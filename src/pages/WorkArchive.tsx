@@ -41,11 +41,15 @@ export function WorkArchive() {
     workMap.forEach((workMaterials, workName) => {
       const workCharacterIds = new Set<string>();
       const workStaffIdsFromMaterials = new Set<string>();
+      const workStaffIdsFromPageRefs = new Set<string>();
       const workStaffIdsFromWorks = new Set<string>();
 
       workMaterials.forEach((m) => {
         m.characterIds.forEach((id) => workCharacterIds.add(id));
         m.staffIds.forEach((id) => workStaffIdsFromMaterials.add(id));
+        m.pageReferences.forEach((pr) => {
+          pr.staffIds.forEach((id) => workStaffIdsFromPageRefs.add(id));
+        });
       });
 
       staff.forEach((s) => {
@@ -54,7 +58,11 @@ export function WorkArchive() {
         }
       });
 
-      const allWorkStaffIds = new Set([...workStaffIdsFromMaterials, ...workStaffIdsFromWorks]);
+      const allWorkStaffIds = new Set([
+        ...workStaffIdsFromMaterials,
+        ...workStaffIdsFromPageRefs,
+        ...workStaffIdsFromWorks,
+      ]);
 
       const scanStatus = {
         unscanned: 0,

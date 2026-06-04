@@ -37,9 +37,12 @@ interface MaterialWithRelations extends Material {
   staff: Staff[];
 }
 
+type StaffSource = 'material' | 'pageRef' | 'works' | 'multiple';
+
 interface StaffWithSource extends Staff {
-  source: 'material' | 'works' | 'both';
+  source: StaffSource;
   relatedMaterialCount: number;
+  pageRefCount: number;
 }
 
 interface PageReferenceWithDetails extends PageReference {
@@ -79,10 +82,12 @@ export function WorkDetail() {
 
     const workCharacterIds = new Set<string>();
     const workStaffIdsFromMaterials = new Set<string>();
+    const workStaffIdsFromPageRefs = new Set<string>();
     const workStaffIdsFromWorks = new Set<string>();
     const allPageReferences: Array<PageReference & { materialId: string; materialTitle: string }> = [];
 
     const staffMaterialCount: Record<string, number> = {};
+    const staffPageRefCount: Record<string, number> = {};
 
     workMaterials.forEach((m) => {
       m.characterIds.forEach((id) => workCharacterIds.add(id));
@@ -96,6 +101,10 @@ export function WorkDetail() {
           materialId: m.id,
           materialTitle: m.title,
         });
+        pr.staffIds.forEach((id) => {
+          workStaffIdsFromPageRefs.add(id);
+          staffPageRefCount[id] = (staffPageRefCount[id] || 0) + 1;
+        });
       });
     });
 
@@ -105,27 +114,42 @@ export function WorkDetail() {
         if (!staffMaterialCount[s.id]) {
           staffMaterialCount[s.id] = 0;
         }
+        if (!staffPageRefCount[s.id]) {
+          staffPageRefCount[s.id] = 0;
+        }
       }
     });
 
-    const allWorkStaffIds = new Set([...workStaffIdsFromMaterials, ...workStaffIdsFromWorks]);
+    const allWorkStaffIds = new Set([
+      ...workStaffIdsFromMaterials,
+      ...workStaffIdsFromPageRefs,
+      ...workStaffIdsFromWorks,
+    ]);
 
     const workCharacters = allCharacters.filter((c) => workCharacterIds.has(c.id));
     const workStaff: StaffWithSource[] = allStaff
       .filter((s) => allWorkStaffIds.has(s.id))
       .map((s) => {
         const fromMaterial = workStaffIdsFromMaterials.has(s.id);
+        const fromPageRef = workStaffIdsFromPageRefs.has(s.id);
         const fromWorks = workStaffIdsFromWorks.has(s.id);
-        let source: 'material' | 'works' | 'both' = 'material';
-        if (fromMaterial && fromWorks) {
-          source = 'both';
-        } else if (fromWorks) {
-          source = 'works';
+        const sources = [];
+        if (fromMaterial) sources.push('material');
+        if (fromPageRef) sources.push('pageRef');
+        if (fromWorks) sources.push('works');
+
+        let source: StaffSource = 'material';
+        if (sources.length > 1) {
+          source = 'multiple';
+        } else if (sources.length === 1) {
+          source = sources[0] as StaffSource;
         }
+
         return {
           ...s,
           source,
           relatedMaterialCount: staffMaterialCount[s.id] || 0,
+          pageRefCount: staffPageRefCount[s.id] || 0,
         };
       });
 
@@ -626,10 +650,14 @@ export function WorkDetail() {
                 </div>
               ) : (
                 <>
-                  <div className="flex gap-4 mb-4 text-xs text-gray-500">
+                  <div className="flex flex-wrap gap-4 mb-4 text-xs text-gray-500">
                     <span className="flex items-center gap-1">
                       <span className="w-2 h-2 rounded-full bg-green-500" />
                       资料关联
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-orange-500" />
+                      页码标注
                     </span>
                     <span className="flex items-center gap-1">
                       <span className="w-2 h-2 rounded-full bg-blue-500" />
@@ -637,20 +665,28 @@ export function WorkDetail() {
                     </span>
                     <span className="flex items-center gap-1">
                       <span className="w-2 h-2 rounded-full bg-accent-500" />
-                      两者都有
+                      多来源
                     </span>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {workData.staff.map((s) => {
-                      const sourceColors = {
+                      const sourceColors: Record<StaffSource, string> = {
                         material: 'border-l-2 border-l-green-500',
+                        pageRef: 'border-l-2 border-l-orange-500',
                         works: 'border-l-2 border-l-blue-500',
-                        both: 'border-l-2 border-l-accent-500',
+                        multiple: 'border-l-2 border-l-accent-500',
                       };
-                      const sourceLabels = {
+                      const sourceLabels: Record<StaffSource, string> = {
                         material: '资料关联',
+                        pageRef: '页码标注',
                         works: 'Works字段',
-                        both: '双重关联',
+                        multiple: '多来源',
+                      };
+                      const sourceBadgeColors: Record<StaffSource, string> = {
+                        material: 'bg-green-500/20 text-green-400',
+                        pageRef: 'bg-orange-500/20 text-orange-400',
+                        works: 'bg-blue-500/20 text-blue-400',
+                        multiple: 'bg-accent-500/20 text-accent-400',
                       };
                       return (
                         <div
@@ -662,19 +698,20 @@ export function WorkDetail() {
                               <User className="w-5 h-5 text-green-400" />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <h4 className="font-medium text-white">{s.name}</h4>
-                                <span className={`px-2 py-0.5 text-xs rounded-full ${
-                                  s.source === 'material' ? 'bg-green-500/20 text-green-400' :
-                                  s.source === 'works' ? 'bg-blue-500/20 text-blue-400' :
-                                  'bg-accent-500/20 text-accent-400'
-                                }`}>
+                                <span className={`px-2 py-0.5 text-xs rounded-full ${sourceBadgeColors[s.source]}`}>
                                   {sourceLabels[s.source]}
                                 </span>
                               </div>
                               <p className="text-sm text-gray-400">{s.role}</p>
-                              <div className="flex gap-4 mt-1 text-xs text-gray-500">
-                                <span>参与 {s.relatedMaterialCount} 本资料</span>
+                              <div className="flex flex-wrap gap-3 mt-1 text-xs text-gray-500">
+                                {s.relatedMaterialCount > 0 && (
+                                  <span>资料: {s.relatedMaterialCount} 本</span>
+                                )}
+                                {s.pageRefCount > 0 && (
+                                  <span>页码标注: {s.pageRefCount} 处</span>
+                                )}
                                 {s.works && s.works.length > 0 && (
                                   <span>Works: {s.works.join(', ')}</span>
                                 )}
