@@ -13,6 +13,7 @@ interface FilterState {
   pageMin: string;
   pageMax: string;
   keyword: string;
+  showOnlyWithReferences: boolean;
 }
 
 interface EditingState {
@@ -33,6 +34,7 @@ export function PageReferenceBrowser() {
     pageMin: '',
     pageMax: '',
     keyword: '',
+    showOnlyWithReferences: false,
   });
 
   const [expandedMaterials, setExpandedMaterials] = useState<Set<string>>(new Set());
@@ -56,65 +58,57 @@ export function PageReferenceBrowser() {
     secondary: s.role,
   }));
 
+  const hasReferenceFilters =
+    filters.characterId ||
+    filters.staffId ||
+    filters.pageMin ||
+    filters.pageMax ||
+    filters.keyword;
+
   const filteredMaterials = useMemo(() => {
+    const filterRefs = (refs: PageReference[]) => {
+      return refs.filter((ref) => {
+        if (filters.characterId && !ref.characterIds.includes(filters.characterId)) return false;
+        if (filters.staffId && !ref.staffIds.includes(filters.staffId)) return false;
+
+        const pageMin = filters.pageMin ? parseInt(filters.pageMin) : null;
+        const pageMax = filters.pageMax ? parseInt(filters.pageMax) : null;
+        if (pageMin !== null && ref.pageNumber < pageMin) return false;
+        if (pageMax !== null && ref.pageNumber > pageMax) return false;
+
+        if (filters.keyword) {
+          const keyword = filters.keyword.toLowerCase();
+          const descMatch = ref.description.toLowerCase().includes(keyword);
+          const charMatch = ref.characterIds.some((id) =>
+            characters.find((c) => c.id === id)?.name.toLowerCase().includes(keyword)
+          );
+          const staffMatch = ref.staffIds.some((id) =>
+            staff.find((s) => s.id === id)?.name.toLowerCase().includes(keyword)
+          );
+          if (!descMatch && !charMatch && !staffMatch) return false;
+        }
+
+        return true;
+      });
+    };
+
     return materials
       .filter((material) => {
         if (filters.work && material.work !== filters.work) return false;
 
-        const matchingRefs = material.pageReferences.filter((ref) => {
-          if (filters.characterId && !ref.characterIds.includes(filters.characterId)) return false;
-          if (filters.staffId && !ref.staffIds.includes(filters.staffId)) return false;
+        const matchingRefs = filterRefs(material.pageReferences);
 
-          const pageMin = filters.pageMin ? parseInt(filters.pageMin) : null;
-          const pageMax = filters.pageMax ? parseInt(filters.pageMax) : null;
-          if (pageMin !== null && ref.pageNumber < pageMin) return false;
-          if (pageMax !== null && ref.pageNumber > pageMax) return false;
+        if (filters.showOnlyWithReferences || hasReferenceFilters) {
+          return matchingRefs.length > 0;
+        }
 
-          if (filters.keyword) {
-            const keyword = filters.keyword.toLowerCase();
-            const descMatch = ref.description.toLowerCase().includes(keyword);
-            const charMatch = ref.characterIds.some((id) =>
-              characters.find((c) => c.id === id)?.name.toLowerCase().includes(keyword)
-            );
-            const staffMatch = ref.staffIds.some((id) =>
-              staff.find((s) => s.id === id)?.name.toLowerCase().includes(keyword)
-            );
-            if (!descMatch && !charMatch && !staffMatch) return false;
-          }
-
-          return true;
-        });
-
-        return matchingRefs.length > 0;
+        return true;
       })
       .map((material) => {
-        const matchingRefs = material.pageReferences.filter((ref) => {
-          if (filters.characterId && !ref.characterIds.includes(filters.characterId)) return false;
-          if (filters.staffId && !ref.staffIds.includes(filters.staffId)) return false;
-
-          const pageMin = filters.pageMin ? parseInt(filters.pageMin) : null;
-          const pageMax = filters.pageMax ? parseInt(filters.pageMax) : null;
-          if (pageMin !== null && ref.pageNumber < pageMin) return false;
-          if (pageMax !== null && ref.pageNumber > pageMax) return false;
-
-          if (filters.keyword) {
-            const keyword = filters.keyword.toLowerCase();
-            const descMatch = ref.description.toLowerCase().includes(keyword);
-            const charMatch = ref.characterIds.some((id) =>
-              characters.find((c) => c.id === id)?.name.toLowerCase().includes(keyword)
-            );
-            const staffMatch = ref.staffIds.some((id) =>
-              staff.find((s) => s.id === id)?.name.toLowerCase().includes(keyword)
-            );
-            if (!descMatch && !charMatch && !staffMatch) return false;
-          }
-
-          return true;
-        });
-
+        const matchingRefs = filterRefs(material.pageReferences);
         return { ...material, matchingRefs };
       });
-  }, [materials, filters, characters, staff]);
+  }, [materials, filters, characters, staff, hasReferenceFilters]);
 
   const totalReferences = useMemo(() => {
     return filteredMaterials.reduce((sum, m) => sum + m.matchingRefs.length, 0);
@@ -182,7 +176,7 @@ export function PageReferenceBrowser() {
     setDeleteConfirm(null);
   };
 
-  const handleFilterChange = (key: keyof FilterState, value: string) => {
+  const handleFilterChange = (key: keyof FilterState, value: string | boolean) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -194,6 +188,7 @@ export function PageReferenceBrowser() {
       pageMin: '',
       pageMax: '',
       keyword: '',
+      showOnlyWithReferences: false,
     });
   };
 
@@ -203,7 +198,8 @@ export function PageReferenceBrowser() {
     filters.staffId ||
     filters.pageMin ||
     filters.pageMax ||
-    filters.keyword;
+    filters.keyword ||
+    filters.showOnlyWithReferences;
 
   const typeIcons: Record<string, string> = {
     artbook: '🎨',
@@ -310,6 +306,28 @@ export function PageReferenceBrowser() {
                 className="w-full pl-12 pr-4 py-3 rounded-lg bg-primary-800/50 border border-accent-500/20 text-white placeholder-gray-500 input-focus"
               />
             </div>
+          </div>
+
+          <div className="flex items-end">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <div
+                className={`relative w-11 h-6 rounded-full transition-colors ${
+                  filters.showOnlyWithReferences
+                    ? 'bg-accent-500'
+                    : 'bg-primary-700'
+                }`}
+                onClick={() =>
+                  handleFilterChange('showOnlyWithReferences', !filters.showOnlyWithReferences)
+                }
+              >
+                <div
+                  className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
+                    filters.showOnlyWithReferences ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </div>
+              <span className="text-sm text-gray-300">只显示有标注的资料</span>
+            </label>
           </div>
         </div>
       </div>
@@ -430,8 +448,18 @@ export function PageReferenceBrowser() {
                         })}
                       </div>
                     ) : (
-                      <div className="p-8 text-center text-gray-400">
-                        暂无页码标注
+                      <div className="p-8 text-center">
+                        <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-primary-700/50 flex items-center justify-center">
+                          <Hash className="w-6 h-6 text-gray-500" />
+                        </div>
+                        <p className="text-gray-400 mb-4">暂无页码标注</p>
+                        <button
+                          onClick={() => handleAddReference(material.id)}
+                          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent-500/20 text-accent-400 text-sm hover:bg-accent-500/30 transition-colors"
+                        >
+                          <Plus className="w-4 h-4" />
+                          添加第一条页码标注
+                        </button>
                       </div>
                     )}
                   </div>
