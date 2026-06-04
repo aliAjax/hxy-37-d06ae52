@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Search, FilterX, BookMarked, Users, User, Calendar, FileText } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Search, FilterX, BookMarked, Users, User, Calendar, FileText, Palette } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { SearchFilters, Material, MaterialType, MaterialTypeLabels } from '../types';
 import { MaterialCard } from '../components/MaterialCard';
@@ -7,7 +7,6 @@ import { Modal } from '../components/Modal';
 import { MaterialDetail } from '../components/MaterialDetail';
 
 export function AdvancedSearch() {
-  const materials = useStore((state) => state.materials);
   const characters = useStore((state) => state.characters);
   const staff = useStore((state) => state.staff);
   const getWorks = useStore((state) => state.getWorks);
@@ -21,6 +20,16 @@ export function AdvancedSearch() {
   const works = getWorks();
   const typeOptions = Object.entries(MaterialTypeLabels) as [MaterialType, string][];
 
+  const staffRoles = useMemo(() => {
+    const roles = new Set<string>();
+    staff.forEach((s) => {
+      if (s.role) {
+        roles.add(s.role);
+      }
+    });
+    return Array.from(roles).sort();
+  }, [staff]);
+
   const handleSearch = () => {
     const searchResults = searchMaterials(filters);
     setResults(searchResults);
@@ -33,7 +42,7 @@ export function AdvancedSearch() {
     setHasSearched(false);
   };
 
-  const updateFilter = (key: keyof SearchFilters, value: any) => {
+  const updateFilter = (key: keyof SearchFilters, value: SearchFilters[keyof SearchFilters]) => {
     setFilters((prev) => ({
       ...prev,
       [key]: value,
@@ -135,6 +144,27 @@ export function AdvancedSearch() {
               {staff.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name} ({s.role})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
+              <Palette className="w-4 h-4" />
+              职务（原画师等）
+            </label>
+            <select
+              value={filters.staffRole || ''}
+              onChange={(e) =>
+                updateFilter('staffRole', e.target.value || undefined)
+              }
+              className="w-full px-4 py-3 rounded-lg bg-primary-800/50 border border-accent-500/20 text-white input-focus"
+            >
+              <option value="">全部职务</option>
+              {staffRoles.map((role) => (
+                <option key={role} value={role}>
+                  {role}
                 </option>
               ))}
             </select>

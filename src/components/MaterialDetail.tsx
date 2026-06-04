@@ -83,7 +83,14 @@ export function MaterialDetail({ material }: MaterialDetailProps) {
             <FileText className="w-4 h-4" />
             页数
           </div>
-          <div className="text-white font-medium">{material.pageCount} 页</div>
+          <div className="text-white font-medium">
+            {material.pageCount} 页
+            {(material.pageStart > 1 || material.pageEnd < material.pageCount) && (
+              <span className="text-accent-400 ml-2">
+                (P{material.pageStart} - P{material.pageEnd})
+              </span>
+            )}
+          </div>
         </div>
 
         {material.purchaseSource && (

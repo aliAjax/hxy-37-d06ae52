@@ -15,7 +15,11 @@ export function TagManagement() {
 
   const [activeTab, setActiveTab] = useState<'characters' | 'staff'>('characters');
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<any>({});
+  const [editForm, setEditForm] = useState<{
+    name: string;
+    work: string;
+    role: string;
+  }>({ name: '', work: '', role: '' });
   const [showAddForm, setShowAddForm] = useState(false);
   const [newForm, setNewForm] = useState({
     name: '',
@@ -50,8 +54,8 @@ export function TagManagement() {
     setEditingId(item.id);
     setEditForm({
       name: item.name,
-      work: 'work' in item ? item.work : '',
-      role: 'role' in item ? item.role : '',
+      work: type === 'character' ? (item as Character).work : '',
+      role: type === 'staff' ? (item as Staff).role : '',
     });
   };
 
@@ -70,7 +74,7 @@ export function TagManagement() {
       });
     }
     setEditingId(null);
-    setEditForm({});
+    setEditForm({ name: '', work: '', role: '' });
   };
 
   return (
@@ -233,7 +237,7 @@ export function TagManagement() {
                               <button
                                 onClick={() => {
                                   setEditingId(null);
-                                  setEditForm({});
+                                  setEditForm({ name: '', work: '', role: '' });
                                 }}
                                 className="p-1 rounded hover:bg-gray-500/20 text-gray-400"
                               >
@@ -300,7 +304,7 @@ export function TagManagement() {
                               <button
                                 onClick={() => {
                                   setEditingId(null);
-                                  setEditForm({});
+                                  setEditForm({ name: '', work: '', role: '' });
                                 }}
                                 className="p-1 rounded hover:bg-gray-500/20 text-gray-400"
                               >

@@ -121,9 +121,14 @@ export function MaterialCard({ material, onEdit, onDelete, onView }: MaterialCar
         )}
 
         <div className="flex items-center justify-between pt-4 border-t border-accent-500/10">
-          <span className="text-xs text-gray-500">
-            {material.pageCount} 页
-          </span>
+          <div className="text-xs text-gray-500">
+            <span>{material.pageCount} 页</span>
+            {(material.pageStart > 1 || material.pageEnd < material.pageCount) && (
+              <span className="ml-2 text-accent-500">
+                (P{material.pageStart} - P{material.pageEnd})
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
             <button
               onClick={() => onView(material)}

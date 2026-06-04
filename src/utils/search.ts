@@ -1,6 +1,10 @@
-import { Material, SearchFilters } from '../types';
+import { Material, SearchFilters, Staff } from '../types';
 
-export const searchMaterials = (materials: Material[], filters: SearchFilters): Material[] => {
+export const searchMaterials = (
+  materials: Material[],
+  filters: SearchFilters,
+  staffList: Staff[] = []
+): Material[] => {
   return materials.filter((material) => {
     if (filters.work && !material.work.includes(filters.work)) {
       return false;
@@ -12,6 +16,16 @@ export const searchMaterials = (materials: Material[], filters: SearchFilters): 
 
     if (filters.staffId && !material.staffIds.includes(filters.staffId)) {
       return false;
+    }
+
+    if (filters.staffRole) {
+      const hasMatchingRole = material.staffIds.some((staffId) => {
+        const staff = staffList.find((s) => s.id === staffId);
+        return staff && staff.role.includes(filters.staffRole!);
+      });
+      if (!hasMatchingRole) {
+        return false;
+      }
     }
 
     if (filters.type && material.type !== filters.type) {

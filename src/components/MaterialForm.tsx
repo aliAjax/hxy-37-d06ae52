@@ -38,6 +38,8 @@ export function MaterialForm({ initialData, onSubmit, onCancel }: MaterialFormPr
     publisher: '',
     publishDate: '',
     pageCount: 0,
+    pageStart: 1,
+    pageEnd: 0,
     purchaseSource: '',
     scanStatus: 'unscanned' as ScanStatus,
     copyrightNote: '',
@@ -58,6 +60,8 @@ export function MaterialForm({ initialData, onSubmit, onCancel }: MaterialFormPr
         publisher: initialData.publisher,
         publishDate: initialData.publishDate,
         pageCount: initialData.pageCount,
+        pageStart: initialData.pageStart || 1,
+        pageEnd: initialData.pageEnd || initialData.pageCount,
         purchaseSource: initialData.purchaseSource,
         scanStatus: initialData.scanStatus,
         copyrightNote: initialData.copyrightNote,
@@ -132,15 +136,17 @@ export function MaterialForm({ initialData, onSubmit, onCancel }: MaterialFormPr
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <FormInput
-          label="资料标题"
-          value={formData.title}
-          onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-          error={errors.title}
-          required
-          placeholder="输入资料标题"
-        />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="md:col-span-2">
+          <FormInput
+            label="资料标题"
+            value={formData.title}
+            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+            error={errors.title}
+            required
+            placeholder="输入资料标题"
+          />
+        </div>
 
         <FormSelect
           label="资料类型"
@@ -149,12 +155,14 @@ export function MaterialForm({ initialData, onSubmit, onCancel }: MaterialFormPr
           onChange={(v) => setFormData({ ...formData, type: v as MaterialType })}
         />
 
-        <FormInput
-          label="所属作品"
-          value={formData.work}
-          onChange={(e) => setFormData({ ...formData, work: e.target.value })}
-          placeholder="输入作品名称"
-        />
+        <div className="md:col-span-2">
+          <FormInput
+            label="所属作品"
+            value={formData.work}
+            onChange={(e) => setFormData({ ...formData, work: e.target.value })}
+            placeholder="输入作品名称"
+          />
+        </div>
 
         <FormInput
           label="出版社"
@@ -174,8 +182,31 @@ export function MaterialForm({ initialData, onSubmit, onCancel }: MaterialFormPr
           label="总页数"
           type="number"
           value={formData.pageCount || ''}
-          onChange={(e) => setFormData({ ...formData, pageCount: parseInt(e.target.value) || 0 })}
+          onChange={(e) => {
+            const val = parseInt(e.target.value) || 0;
+            setFormData({ 
+              ...formData, 
+              pageCount: val,
+              pageEnd: formData.pageEnd === 0 ? val : Math.min(formData.pageEnd, val)
+            });
+          }}
           placeholder="输入页码数量"
+        />
+
+        <FormInput
+          label="起始页码"
+          type="number"
+          value={formData.pageStart || ''}
+          onChange={(e) => setFormData({ ...formData, pageStart: parseInt(e.target.value) || 1 })}
+          placeholder="默认为 1"
+        />
+
+        <FormInput
+          label="结束页码"
+          type="number"
+          value={formData.pageEnd || ''}
+          onChange={(e) => setFormData({ ...formData, pageEnd: parseInt(e.target.value) || formData.pageCount })}
+          placeholder="默认为总页数"
         />
 
         <FormInput

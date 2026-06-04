@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Upload, Download, FileText, CheckCircle, AlertCircle, Trash2 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { parseCSV, downloadCSV } from '../utils/csv';
-import { Material } from '../types';
+import { CSVRow } from '../types';
 
 export function ImportExport() {
   const materials = useStore((state) => state.materials);
@@ -10,8 +10,8 @@ export function ImportExport() {
   const exportToCSV = useStore((state) => state.exportToCSV);
   const clearAllData = useStore((state) => state.clearAllData);
 
-  const [importData, setImportData] = useState<any[] | null>(null);
-  const [importPreview, setImportPreview] = useState<any[] | null>(null);
+  const [importData, setImportData] = useState<CSVRow[] | null>(null);
+  const [importPreview, setImportPreview] = useState<CSVRow[] | null>(null);
   const [importResult, setImportResult] = useState<{
     success: number;
     failed: number;
@@ -26,7 +26,7 @@ export function ImportExport() {
 
     try {
       const data = await parseCSV(file);
-      const validData = data.filter((row: any) => row.标题 || row['标题']);
+      const validData = data.filter((row: CSVRow) => row.标题 || row['标题']);
       setImportData(validData);
       setImportPreview(validData.slice(0, 5));
       setImportResult(null);
@@ -288,6 +288,16 @@ export function ImportExport() {
                 <tr>
                   <td className="px-4 py-2 font-mono">总页数</td>
                   <td className="px-4 py-2">页码数量</td>
+                  <td className="px-4 py-2 text-gray-400">128</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-2 font-mono">起始页码</td>
+                  <td className="px-4 py-2">收录起始页码（默认1）</td>
+                  <td className="px-4 py-2 text-gray-400">1</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-2 font-mono">结束页码</td>
+                  <td className="px-4 py-2">收录结束页码（默认总页数）</td>
                   <td className="px-4 py-2 text-gray-400">128</td>
                 </tr>
                 <tr>

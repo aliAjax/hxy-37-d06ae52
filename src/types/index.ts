@@ -23,6 +23,8 @@ export interface Material {
   publisher: string;
   publishDate: string;
   pageCount: number;
+  pageStart: number;
+  pageEnd: number;
   purchaseSource: string;
   scanStatus: ScanStatus;
   copyrightNote: string;
@@ -66,6 +68,24 @@ export interface SearchFilters {
   keyword?: string;
 }
 
+export interface CSVRow {
+  [key: string]: string | number | undefined;
+  标题?: string;
+  类型?: string;
+  作品?: string;
+  出版社?: string;
+  出版日期?: string;
+  总页数?: number | string;
+  起始页码?: number | string;
+  结束页码?: number | string;
+  购买来源?: string;
+  扫描状态?: string;
+  版权备注?: string;
+  收录内容?: string;
+  关联角色?: string;
+  关联制作人员?: string;
+}
+
 export interface AppState {
   materials: Material[];
   characters: Character[];
@@ -85,7 +105,7 @@ export interface AppState {
   updateStaff: (id: string, updates: Partial<Staff>) => void;
   deleteStaff: (id: string) => void;
   
-  importFromCSV: (data: any[]) => { success: number; failed: number; errors: string[] };
+  importFromCSV: (data: CSVRow[]) => { success: number; failed: number; errors: string[] };
   exportToCSV: (materialIds?: string[]) => string;
   
   loadFromStorage: () => void;

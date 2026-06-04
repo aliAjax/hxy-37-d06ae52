@@ -1,13 +1,13 @@
 import Papa from 'papaparse';
-import { Material, MaterialType, ScanStatus, MaterialTypeLabels, ScanStatusLabels } from '../types';
+import { Material, MaterialType, ScanStatus, MaterialTypeLabels, ScanStatusLabels, CSVRow } from '../types';
 
-export const parseCSV = (file: File): Promise<any[]> => {
+export const parseCSV = (file: File): Promise<CSVRow[]> => {
   return new Promise((resolve, reject) => {
     Papa.parse(file, {
       header: true,
       encoding: 'UTF-8',
       complete: (results) => {
-        resolve(results.data as any[]);
+        resolve(results.data as CSVRow[]);
       },
       error: (error) => {
         reject(error);
@@ -24,6 +24,8 @@ export const exportToCSV = (materials: Material[]): string => {
     出版社: material.publisher,
     出版日期: material.publishDate,
     总页数: material.pageCount,
+    起始页码: material.pageStart || 1,
+    结束页码: material.pageEnd || material.pageCount,
     购买来源: material.purchaseSource,
     扫描状态: ScanStatusLabels[material.scanStatus],
     版权备注: material.copyrightNote,
@@ -50,7 +52,7 @@ export const downloadCSV = (csvContent: string, filename: string) => {
   URL.revokeObjectURL(url);
 };
 
-export const validateMaterialData = (data: any, index: number): { valid: boolean; errors: string[]; material?: Omit<Material, 'id' | 'createdAt' | 'updatedAt'> } => {
+export const validateMaterialData = (data: CSVRow, index: number): { valid: boolean; errors: string[]; material?: Omit<Material, 'id' | 'createdAt' | 'updatedAt'> } => {
   const errors: string[] = [];
   
   if (!data.标题 || !data.标题.trim()) {
@@ -78,6 +80,10 @@ export const validateMaterialData = (data: any, index: number): { valid: boolean
     return { valid: false, errors };
   }
 
+  const pageCount = parseInt(String(data.总页数)) || 0;
+  const pageStart = parseInt(String(data.起始页码)) || 1;
+  const pageEnd = parseInt(String(data.结束页码)) || pageCount;
+
   return {
     valid: true,
     errors: [],
@@ -87,7 +93,9 @@ export const validateMaterialData = (data: any, index: number): { valid: boolean
       work: data.作品?.trim() || '',
       publisher: data.出版社?.trim() || '',
       publishDate: data.出版日期?.trim() || '',
-      pageCount: parseInt(data.总页数) || 0,
+      pageCount,
+      pageStart,
+      pageEnd,
       purchaseSource: data.购买来源?.trim() || '',
       scanStatus,
       copyrightNote: data.版权备注?.trim() || '',

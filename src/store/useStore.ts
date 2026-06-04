@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Material, Character, Staff, SearchFilters, MaterialType, ScanStatus } from '../types';
+import { Material, Character, Staff, SearchFilters, MaterialType, ScanStatus, CSVRow } from '../types';
 import { sampleMaterials, sampleCharacters, sampleStaff } from '../data/sampleData';
 import { searchMaterials, generateId } from '../utils/search';
 import { validateMaterialData } from '../utils/csv';
@@ -27,7 +27,7 @@ interface StoreState {
   deleteStaff: (id: string) => void;
   getOrCreateStaff: (name: string, role: string) => Staff;
   
-  importFromCSV: (data: any[]) => { success: number; failed: number; errors: string[] };
+  importFromCSV: (data: CSVRow[]) => { success: number; failed: number; errors: string[] };
   exportToCSV: (materialIds?: string[]) => string;
   
   initializeWithSampleData: () => void;
@@ -55,6 +55,8 @@ export const useStore = create<StoreState>()(
       addMaterial: (material) => {
         const now = new Date().toISOString();
         const newMaterial: Material = {
+          pageStart: 1,
+          pageEnd: material.pageCount || 0,
           ...material,
           id: generateId(),
           createdAt: now,
@@ -84,7 +86,7 @@ export const useStore = create<StoreState>()(
       },
 
       searchMaterials: (filters) => {
-        return searchMaterials(get().materials, filters);
+        return searchMaterials(get().materials, filters, get().staff);
       },
 
       addCharacter: (character) => {
@@ -238,6 +240,8 @@ export const useStore = create<StoreState>()(
           '出版社',
           '出版日期',
           '总页数',
+          '起始页码',
+          '结束页码',
           '购买来源',
           '扫描状态',
           '版权备注',
@@ -280,6 +284,8 @@ export const useStore = create<StoreState>()(
             m.publisher,
             m.publishDate,
             m.pageCount.toString(),
+            (m.pageStart || 1).toString(),
+            (m.pageEnd || m.pageCount).toString(),
             m.purchaseSource,
             scanLabels[m.scanStatus],
             m.copyrightNote,
