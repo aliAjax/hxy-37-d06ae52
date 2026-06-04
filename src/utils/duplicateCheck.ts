@@ -110,10 +110,14 @@ export const findDuplicatePairs = (materials: Material[]): DuplicatePair[] => {
 };
 
 export const getFieldDifferences = (materialA: Material, materialB: Material): FieldDiff[] => {
+  const getArrayLength = (arr: unknown): number => {
+    return Array.isArray(arr) ? arr.length : 0;
+  };
+
   const fields: Array<{
     key: keyof Material;
     label: string;
-    format?: (value: any) => string | number | string[];
+    format?: (value: Material[keyof Material]) => number;
   }> = [
     { key: 'title', label: '标题' },
     { key: 'type', label: '类型' },
@@ -127,9 +131,9 @@ export const getFieldDifferences = (materialA: Material, materialB: Material): F
     { key: 'scanStatus', label: '扫描状态' },
     { key: 'copyrightNote', label: '版权备注' },
     { key: 'description', label: '描述' },
-    { key: 'characterIds', label: '关联角色数量', format: (v) => v?.length || 0 },
-    { key: 'staffIds', label: '关联制作人员数量', format: (v) => v?.length || 0 },
-    { key: 'pageReferences', label: '页码标注数量', format: (v) => v?.length || 0 },
+    { key: 'characterIds', label: '关联角色数量', format: getArrayLength },
+    { key: 'staffIds', label: '关联制作人员数量', format: getArrayLength },
+    { key: 'pageReferences', label: '页码标注数量', format: getArrayLength },
   ];
 
   return fields.map(({ key, label, format }) => {

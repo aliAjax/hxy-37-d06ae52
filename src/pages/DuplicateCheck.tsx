@@ -7,10 +7,8 @@ import {
   Copy,
   BookOpen,
   Calendar,
-  Library,
   ChevronDown,
   ChevronUp,
-  RefreshCw,
   AlertCircle,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
@@ -19,13 +17,6 @@ import { Material, MaterialTypeLabels, ScanStatusLabels } from '../types';
 import { Modal } from '../components/Modal';
 
 type ActionType = 'keep' | 'delete' | 'skip';
-
-interface ProcessedPair {
-  pairId: string;
-  action: ActionType;
-  keptMaterialId?: string;
-  deletedMaterialId?: string;
-}
 
 export function DuplicateCheck() {
   const materials = useStore((state) => state.materials);
@@ -109,9 +100,8 @@ export function DuplicateCheck() {
     completed: 'bg-green-500/20 text-green-400',
   };
 
-  const renderMaterialCard = (material: Material, pair: DuplicatePair, isFirst: boolean) => {
+  const renderMaterialCard = (material: Material, pair: DuplicatePair) => {
     const targetId = material.id;
-    const otherId = isFirst ? pair.materialB.id : pair.materialA.id;
 
     return (
       <div className="flex-1 bg-primary-800/50 rounded-xl p-4 border border-primary-700/50">
@@ -311,8 +301,8 @@ export function DuplicateCheck() {
                   <div className="px-4 pb-4 border-t border-accent-500/10">
                     <div className="pt-4">
                       <div className="flex gap-4 mb-4">
-                        {renderMaterialCard(pair.materialA, pair, true)}
-                        {renderMaterialCard(pair.materialB, pair, false)}
+                        {renderMaterialCard(pair.materialA, pair)}
+                        {renderMaterialCard(pair.materialB, pair)}
                       </div>
 
                       <div className="bg-primary-900/50 rounded-xl p-4">
