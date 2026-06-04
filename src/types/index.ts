@@ -90,27 +90,27 @@ export interface AppState {
   materials: Material[];
   characters: Character[];
   staff: Staff[];
-  
+
   addMaterial: (material: Omit<Material, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateMaterial: (id: string, updates: Partial<Material>) => void;
   deleteMaterial: (id: string) => void;
   getMaterial: (id: string) => Material | undefined;
   searchMaterials: (filters: SearchFilters) => Material[];
-  
+
   addCharacter: (character: Omit<Character, 'id'>) => void;
   updateCharacter: (id: string, updates: Partial<Character>) => void;
   deleteCharacter: (id: string) => void;
-  
+
   addStaff: (staff: Omit<Staff, 'id'>) => void;
   updateStaff: (id: string, updates: Partial<Staff>) => void;
   deleteStaff: (id: string) => void;
-  
+
   importFromCSV: (data: CSVRow[]) => { success: number; failed: number; errors: string[] };
   exportToCSV: (materialIds?: string[]) => string;
-  
+
   loadFromStorage: () => void;
   saveToStorage: () => void;
-  
+
   getWorks: () => string[];
   getStats: () => {
     totalMaterials: number;

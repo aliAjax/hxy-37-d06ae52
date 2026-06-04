@@ -1,38 +1,38 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Material, Character, Staff, SearchFilters, MaterialType, ScanStatus, CSVRow } from '../types';
+import { Material, Character, Staff, SearchFilters, CSVRow, MaterialType, ScanStatus } from '../types';
 import { sampleMaterials, sampleCharacters, sampleStaff } from '../data/sampleData';
 import { searchMaterials, generateId } from '../utils/search';
-import { validateMaterialData } from '../utils/csv';
+import { validateMaterialData, exportToCSV as exportToCSVUtil } from '../utils/csv';
 
 interface StoreState {
   materials: Material[];
   characters: Character[];
   staff: Staff[];
   initialized: boolean;
-  
+
   addMaterial: (material: Omit<Material, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateMaterial: (id: string, updates: Partial<Material>) => void;
   deleteMaterial: (id: string) => void;
   getMaterial: (id: string) => Material | undefined;
   searchMaterials: (filters: SearchFilters) => Material[];
-  
+
   addCharacter: (character: Omit<Character, 'id'>) => void;
   updateCharacter: (id: string, updates: Partial<Character>) => void;
   deleteCharacter: (id: string) => void;
   getOrCreateCharacter: (name: string, work: string) => Character;
-  
+
   addStaff: (staff: Omit<Staff, 'id'>) => void;
   updateStaff: (id: string, updates: Partial<Staff>) => void;
   deleteStaff: (id: string) => void;
   getOrCreateStaff: (name: string, role: string) => Staff;
-  
+
   importFromCSV: (data: CSVRow[]) => { success: number; failed: number; errors: string[] };
   exportToCSV: (materialIds?: string[]) => string;
-  
+
   initializeWithSampleData: () => void;
   clearAllData: () => void;
-  
+
   getWorks: () => string[];
   getStats: () => {
     totalMaterials: number;
@@ -123,7 +123,7 @@ export const useStore = create<StoreState>()(
           (c) => c.name === name && c.work === work
         );
         if (existing) return existing;
-        
+
         const newCharacter: Character = {
           id: generateId(),
           name,
@@ -169,7 +169,7 @@ export const useStore = create<StoreState>()(
           (s) => s.name === name && s.role === role
         );
         if (existing) return existing;
-        
+
         const newStaff: Staff = {
           id: generateId(),
           name,
@@ -228,74 +228,12 @@ export const useStore = create<StoreState>()(
       },
 
       exportToCSV: (materialIds) => {
-        const { materials } = get();
+        const { materials, characters, staff } = get();
         const exportMaterials = materialIds
           ? materials.filter((m) => materialIds.includes(m.id))
           : materials;
-        
-        const headers = [
-          '标题',
-          '类型',
-          '作品',
-          '出版社',
-          '出版日期',
-          '总页数',
-          '起始页码',
-          '结束页码',
-          '购买来源',
-          '扫描状态',
-          '版权备注',
-          '收录内容',
-          '关联角色',
-          '关联制作人员',
-        ];
 
-        const typeLabels: Record<MaterialType, string> = {
-          artbook: '原画集',
-          storyboard: '分镜集',
-          setting: '设定集',
-          magazine: '杂志切页',
-          special: '特典册',
-        };
-
-        const scanLabels: Record<ScanStatus, string> = {
-          unscanned: '未扫描',
-          partial: '部分扫描',
-          completed: '已完成',
-        };
-
-        const characters = get().characters;
-        const staff = get().staff;
-
-        const rows = exportMaterials.map((m) => {
-          const charNames = m.characterIds
-            .map((id) => characters.find((c) => c.id === id)?.name || '')
-            .filter(Boolean)
-            .join('; ');
-          const staffNames = m.staffIds
-            .map((id) => staff.find((s) => s.id === id)?.name || '')
-            .filter(Boolean)
-            .join('; ');
-
-          return [
-            m.title,
-            typeLabels[m.type],
-            m.work,
-            m.publisher,
-            m.publishDate,
-            m.pageCount.toString(),
-            (m.pageStart || 1).toString(),
-            (m.pageEnd || m.pageCount).toString(),
-            m.purchaseSource,
-            scanLabels[m.scanStatus],
-            m.copyrightNote,
-            m.description,
-            charNames,
-            staffNames,
-          ].join(',');
-        });
-
-        return [headers.join(','), ...rows].join('\n');
+        return exportToCSVUtil(exportMaterials, characters, staff);
       },
 
       initializeWithSampleData: () => {
@@ -322,7 +260,7 @@ export const useStore = create<StoreState>()(
 
       getStats: () => {
         const { materials, characters, staff } = get();
-        
+
         const byType: Record<MaterialType, number> = {
           artbook: 0,
           storyboard: 0,
@@ -330,7 +268,7 @@ export const useStore = create<StoreState>()(
           magazine: 0,
           special: 0,
         };
-        
+
         const scannedStatus: Record<ScanStatus, number> = {
           unscanned: 0,
           partial: 0,

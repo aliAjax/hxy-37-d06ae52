@@ -55,7 +55,7 @@ export const searchMaterials = (
         material.description,
         material.copyrightNote,
       ].join(' ').toLowerCase();
-      
+
       if (!searchFields.includes(keyword)) {
         return false;
       }

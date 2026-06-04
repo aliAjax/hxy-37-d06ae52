@@ -184,8 +184,8 @@ export function MaterialForm({ initialData, onSubmit, onCancel }: MaterialFormPr
           value={formData.pageCount || ''}
           onChange={(e) => {
             const val = parseInt(e.target.value) || 0;
-            setFormData({ 
-              ...formData, 
+            setFormData({
+              ...formData,
               pageCount: val,
               pageEnd: formData.pageEnd === 0 ? val : Math.min(formData.pageEnd, val)
             });

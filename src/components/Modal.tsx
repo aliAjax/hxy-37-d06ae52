@@ -48,7 +48,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
       <div
         ref={modalRef}
         className={`
-          relative w-full ${sizeClasses[size]} max-h-[90vh] 
+          relative w-full ${sizeClasses[size]} max-h-[90vh]
           glass rounded-2xl overflow-hidden
           animate-fade-in
         `}

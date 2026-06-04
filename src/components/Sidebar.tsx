@@ -1,11 +1,11 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Library, 
-  Search, 
-  Upload, 
-  Tags, 
-  BookOpen 
+import {
+  LayoutDashboard,
+  Library,
+  Search,
+  Upload,
+  Tags,
+  BookOpen
 } from 'lucide-react';
 
 const navItems = [
@@ -39,15 +39,15 @@ export function Sidebar() {
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
-          
+
           return (
             <NavLink
               key={item.path}
               to={item.path}
               className={`
                 flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200
-                ${isActive 
-                  ? 'bg-accent-500/20 text-accent-400 border border-accent-500/30' 
+                ${isActive
+                  ? 'bg-accent-500/20 text-accent-400 border border-accent-500/30'
                   : 'text-gray-300 hover:bg-primary-700/50 hover:text-white'
                 }
               `}

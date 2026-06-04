@@ -54,7 +54,7 @@ export function TagSelector({
   return (
     <div className="space-y-2">
       <label className="block text-sm font-medium text-gray-300">{label}</label>
-      
+
       <div className="relative">
         <div
           className="min-h-[48px] px-4 py-2 rounded-lg bg-primary-800/50 border border-accent-500/20 cursor-pointer"
