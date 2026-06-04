@@ -12,7 +12,9 @@ import {
   RowValidationResult,
   PreflightResult,
   PreflightSummary,
-  ValidationStatus
+  ValidationStatus,
+  CharacterPreview,
+  StaffPreview,
 } from '../types';
 
 export const TARGET_FIELDS = [
@@ -187,8 +189,7 @@ const checkDuplicateRisk = (
 };
 
 const validateRowData = (
-  mappedRow: CSVRow,
-  index: number
+  mappedRow: CSVRow
 ): {
   valid: boolean;
   errors: string[];
@@ -301,13 +302,15 @@ export const runPreflight = (
 ): PreflightResult => {
   const csvHeaders = getCSVHeaders(rawData);
   const rowResults: RowValidationResult[] = [];
-  const allCharacterNames = new Set<string>();
-  const allStaffNames = new Set<string>();
+  const characterKeySet = new Set<string>();
+  const staffKeySet = new Set<string>();
+  const characterPreviews = new Map<string, CharacterPreview>();
+  const staffPreviews = new Map<string, StaffPreview>();
   const fieldsWithIssues = new Set<string>();
 
   rawData.forEach((row, index) => {
     const mappedRow = applyFieldMapping(row, fieldMappings);
-    const validation = validateRowData(mappedRow, index);
+    const validation = validateRowData(mappedRow);
 
     let status: ValidationStatus = 'success';
     if (!validation.valid) {
@@ -336,8 +339,33 @@ export const runPreflight = (
       });
     }
 
-    validation.characterNames.forEach((n) => allCharacterNames.add(n));
-    validation.staffNames.forEach((n) => allStaffNames.add(n));
+    const work = validation.material?.work || '';
+    validation.characterNames.forEach((charName) => {
+      const charKey = `${charName}|${work}`;
+      if (characterKeySet.has(charKey)) return;
+      characterKeySet.add(charKey);
+
+      const isExisting = existingCharacters.some((c) => c.name === charName && c.work === work);
+      characterPreviews.set(charKey, {
+        name: charName,
+        work,
+        isNew: !isExisting,
+      });
+    });
+
+    validation.staffNames.forEach((staffName) => {
+      const staffRole = '其他';
+      const staffKey = `${staffName}|${staffRole}`;
+      if (staffKeySet.has(staffKey)) return;
+      staffKeySet.add(staffKey);
+
+      const isExisting = existingStaff.some((s) => s.name === staffName && s.role === staffRole);
+      staffPreviews.set(staffKey, {
+        name: staffName,
+        role: staffRole,
+        isNew: !isExisting,
+      });
+    });
 
     rowResults.push({
       rowIndex: index,
@@ -352,9 +380,6 @@ export const runPreflight = (
     });
   });
 
-  const existingCharNames = new Set(existingCharacters.map((c) => `${c.name}|${c.work}`));
-  const existingStaffNames = new Set(existingStaff.map((s) => `${s.name}|${s.role}`));
-
   const summary: PreflightSummary = {
     totalRows: rowResults.length,
     validRows: rowResults.filter((r) => r.status === 'success').length,
@@ -368,21 +393,19 @@ export const runPreflight = (
     fieldsWithIssues: Array.from(fieldsWithIssues),
   };
 
-  allCharacterNames.forEach((name) => {
-    const isExisting = existingCharacters.some((c) => c.name === name);
-    if (isExisting) {
-      summary.existingCharacters.push(name);
+  characterPreviews.forEach((preview) => {
+    if (preview.isNew) {
+      summary.newCharacters.push(preview);
     } else {
-      summary.newCharacters.push(name);
+      summary.existingCharacters.push(preview);
     }
   });
 
-  allStaffNames.forEach((name) => {
-    const isExisting = existingStaff.some((s) => s.name === name);
-    if (isExisting) {
-      summary.existingStaff.push(name);
+  staffPreviews.forEach((preview) => {
+    if (preview.isNew) {
+      summary.newStaff.push(preview);
     } else {
-      summary.newStaff.push(name);
+      summary.existingStaff.push(preview);
     }
   });
 

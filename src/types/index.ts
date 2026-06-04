@@ -199,16 +199,28 @@ export interface RowValidationResult {
   originalRow: CSVRow;
 }
 
+export interface CharacterPreview {
+  name: string;
+  work: string;
+  isNew: boolean;
+}
+
+export interface StaffPreview {
+  name: string;
+  role: string;
+  isNew: boolean;
+}
+
 export interface PreflightSummary {
   totalRows: number;
   validRows: number;
   warningRows: number;
   errorRows: number;
   duplicateRows: number;
-  newCharacters: string[];
-  existingCharacters: string[];
-  newStaff: string[];
-  existingStaff: string[];
+  newCharacters: CharacterPreview[];
+  existingCharacters: CharacterPreview[];
+  newStaff: StaffPreview[];
+  existingStaff: StaffPreview[];
   fieldsWithIssues: string[];
 }
 

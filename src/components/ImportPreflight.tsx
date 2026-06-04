@@ -24,6 +24,8 @@ import {
   Character,
   Staff,
   CSVRow,
+  CharacterPreview,
+  StaffPreview,
 } from '../types';
 import {
   TARGET_FIELDS,
@@ -437,14 +439,15 @@ export function ImportPreflight({
                   <UserPlus className="w-3.5 h-3.5" />
                   将自动创建
                 </h4>
-                <div className="flex flex-wrap gap-2">
-                  {preflightResult.summary.newCharacters.map((name) => (
-                    <span
-                      key={name}
-                      className="px-2 py-1 rounded text-xs bg-pink-500/20 text-pink-400 border border-pink-500/30"
+                <div className="space-y-1.5">
+                  {preflightResult.summary.newCharacters.map((char: CharacterPreview) => (
+                    <div
+                      key={`${char.name}|${char.work}`}
+                      className="px-2 py-1 rounded text-xs bg-pink-500/20 text-pink-400 border border-pink-500/30 flex items-center justify-between"
                     >
-                      {name}
-                    </span>
+                      <span>{char.name}</span>
+                      {char.work && <span className="text-pink-300 opacity-75">• {char.work}</span>}
+                    </div>
                   ))}
                 </div>
               </div>
@@ -456,14 +459,15 @@ export function ImportPreflight({
                   <Users className="w-3.5 h-3.5" />
                   已存在
                 </h4>
-                <div className="flex flex-wrap gap-2">
-                  {preflightResult.summary.existingCharacters.map((name) => (
-                    <span
-                      key={name}
-                      className="px-2 py-1 rounded text-xs bg-gray-500/20 text-gray-400"
+                <div className="space-y-1.5">
+                  {preflightResult.summary.existingCharacters.map((char: CharacterPreview) => (
+                    <div
+                      key={`${char.name}|${char.work}`}
+                      className="px-2 py-1 rounded text-xs bg-gray-500/20 text-gray-400 flex items-center justify-between"
                     >
-                      {name}
-                    </span>
+                      <span>{char.name}</span>
+                      {char.work && <span className="opacity-75">• {char.work}</span>}
+                    </div>
                   ))}
                 </div>
               </div>
@@ -493,14 +497,15 @@ export function ImportPreflight({
                   <UserPlus className="w-3.5 h-3.5" />
                   将自动创建
                 </h4>
-                <div className="flex flex-wrap gap-2">
-                  {preflightResult.summary.newStaff.map((name) => (
-                    <span
-                      key={name}
-                      className="px-2 py-1 rounded text-xs bg-purple-500/20 text-purple-400 border border-purple-500/30"
+                <div className="space-y-1.5">
+                  {preflightResult.summary.newStaff.map((s: StaffPreview) => (
+                    <div
+                      key={`${s.name}|${s.role}`}
+                      className="px-2 py-1 rounded text-xs bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center justify-between"
                     >
-                      {name}
-                    </span>
+                      <span>{s.name}</span>
+                      <span className="text-purple-300 opacity-75">• {s.role}</span>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -512,14 +517,15 @@ export function ImportPreflight({
                   <Users className="w-3.5 h-3.5" />
                   已存在
                 </h4>
-                <div className="flex flex-wrap gap-2">
-                  {preflightResult.summary.existingStaff.map((name) => (
-                    <span
-                      key={name}
-                      className="px-2 py-1 rounded text-xs bg-gray-500/20 text-gray-400"
+                <div className="space-y-1.5">
+                  {preflightResult.summary.existingStaff.map((s: StaffPreview) => (
+                    <div
+                      key={`${s.name}|${s.role}`}
+                      className="px-2 py-1 rounded text-xs bg-gray-500/20 text-gray-400 flex items-center justify-between"
                     >
-                      {name}
-                    </span>
+                      <span>{s.name}</span>
+                      <span className="opacity-75">• {s.role}</span>
+                    </div>
                   ))}
                 </div>
               </div>
