@@ -22,7 +22,6 @@ export function ScanTasks() {
   const scanTasks = useStore((state) => state.scanTasks);
   const setScanTask = useStore((state) => state.setScanTask);
   const deleteScanTask = useStore((state) => state.deleteScanTask);
-  const getWorks = useStore((state) => state.getWorks);
 
   const [statusFilter, setStatusFilter] = useState<ScanStatus | ''>('');
   const [workFilter, setWorkFilter] = useState<string>('');
@@ -37,7 +36,9 @@ export function ScanTasks() {
     notes: '',
   });
 
-  const works = useMemo(() => getWorks(), [materials]);
+  const works = useMemo(() => {
+    return Array.from(new Set(materials.map((m) => m.work))).filter(Boolean).sort();
+  }, [materials]);
 
   const pendingMaterials = useMemo(() => {
     return materials.filter((m) => m.scanStatus !== 'completed');

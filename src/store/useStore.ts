@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Material, Character, Staff, SearchFilters, CSVRow, MaterialType, ScanStatus, ScanTask, ScanPriority } from '../types';
+import { Material, Character, Staff, SearchFilters, CSVRow, MaterialType, ScanStatus, ScanTask } from '../types';
 import { sampleMaterials, sampleCharacters, sampleStaff } from '../data/sampleData';
 import { searchMaterials, generateId } from '../utils/search';
 import { validateMaterialData, exportToCSV as exportToCSVUtil } from '../utils/csv';
