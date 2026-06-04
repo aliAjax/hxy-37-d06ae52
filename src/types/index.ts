@@ -1,5 +1,6 @@
 export type MaterialType = 'artbook' | 'storyboard' | 'setting' | 'magazine' | 'special';
 export type ScanStatus = 'unscanned' | 'partial' | 'completed';
+export type ScanPriority = 'low' | 'medium' | 'high' | 'urgent';
 
 export const MaterialTypeLabels: Record<MaterialType, string> = {
   artbook: '原画集',
@@ -13,6 +14,13 @@ export const ScanStatusLabels: Record<ScanStatus, string> = {
   unscanned: '未扫描',
   partial: '部分扫描',
   completed: '已完成',
+};
+
+export const ScanPriorityLabels: Record<ScanPriority, string> = {
+  low: '低',
+  medium: '中',
+  high: '高',
+  urgent: '紧急',
 };
 
 export interface Material {
@@ -120,4 +128,20 @@ export interface AppState {
     totalStaff: number;
     scannedStatus: Record<ScanStatus, number>;
   };
+}
+
+export interface ScanTask {
+  materialId: string;
+  priority: ScanPriority;
+  plannedDate: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ScanTaskFilters {
+  scanStatus?: ScanStatus;
+  work?: string;
+  type?: MaterialType;
+  priority?: ScanPriority;
 }

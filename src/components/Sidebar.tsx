@@ -5,12 +5,14 @@ import {
   Search,
   Upload,
   Tags,
-  BookOpen
+  BookOpen,
+  Scan
 } from 'lucide-react';
 
 const navItems = [
   { path: '/', label: '概览', icon: LayoutDashboard },
   { path: '/materials', label: '资料管理', icon: Library },
+  { path: '/scan-tasks', label: '扫描任务', icon: Scan },
   { path: '/search', label: '高级检索', icon: Search },
   { path: '/import-export', label: '导入导出', icon: Upload },
   { path: '/tags', label: '标签管理', icon: Tags },

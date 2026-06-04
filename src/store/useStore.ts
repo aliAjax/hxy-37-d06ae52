@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Material, Character, Staff, SearchFilters, CSVRow, MaterialType, ScanStatus } from '../types';
+import { Material, Character, Staff, SearchFilters, CSVRow, MaterialType, ScanStatus, ScanTask, ScanPriority } from '../types';
 import { sampleMaterials, sampleCharacters, sampleStaff } from '../data/sampleData';
 import { searchMaterials, generateId } from '../utils/search';
 import { validateMaterialData, exportToCSV as exportToCSVUtil } from '../utils/csv';
@@ -9,6 +9,7 @@ interface StoreState {
   materials: Material[];
   characters: Character[];
   staff: Staff[];
+  scanTasks: Record<string, ScanTask>;
   initialized: boolean;
 
   addMaterial: (material: Omit<Material, 'id' | 'createdAt' | 'updatedAt'>) => void;
@@ -42,6 +43,11 @@ interface StoreState {
     totalStaff: number;
     scannedStatus: Record<ScanStatus, number>;
   };
+
+  setScanTask: (materialId: string, task: Omit<ScanTask, 'materialId' | 'createdAt' | 'updatedAt'>) => void;
+  getScanTask: (materialId: string) => ScanTask | undefined;
+  deleteScanTask: (materialId: string) => void;
+  getAllScanTasks: () => ScanTask[];
 }
 
 export const useStore = create<StoreState>()(
@@ -50,6 +56,7 @@ export const useStore = create<StoreState>()(
       materials: [],
       characters: [],
       staff: [],
+      scanTasks: {},
       initialized: false,
 
       addMaterial: (material) => {
@@ -290,6 +297,38 @@ export const useStore = create<StoreState>()(
           totalStaff: staff.length,
           scannedStatus,
         };
+      },
+
+      setScanTask: (materialId, task) => {
+        const now = new Date().toISOString();
+        const existing = get().scanTasks[materialId];
+        set((state) => ({
+          scanTasks: {
+            ...state.scanTasks,
+            [materialId]: {
+              ...task,
+              materialId,
+              createdAt: existing?.createdAt || now,
+              updatedAt: now,
+            },
+          },
+        }));
+      },
+
+      getScanTask: (materialId) => {
+        return get().scanTasks[materialId];
+      },
+
+      deleteScanTask: (materialId) => {
+        set((state) => {
+          const newTasks = { ...state.scanTasks };
+          delete newTasks[materialId];
+          return { scanTasks: newTasks };
+        });
+      },
+
+      getAllScanTasks: () => {
+        return Object.values(get().scanTasks);
       },
     }),
     {
