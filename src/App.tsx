@@ -7,6 +7,8 @@ import { ImportExport } from '@/pages/ImportExport';
 import { TagManagement } from '@/pages/TagManagement';
 import { ScanTasks } from '@/pages/ScanTasks';
 import { WishList } from '@/pages/WishList';
+import { WorkArchive } from '@/pages/WorkArchive';
+import { WorkDetail } from '@/pages/WorkDetail';
 
 export default function App() {
   return (
@@ -18,6 +20,8 @@ export default function App() {
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/materials" element={<MaterialList />} />
+              <Route path="/works" element={<WorkArchive />} />
+              <Route path="/works/:workName" element={<WorkDetail />} />
               <Route path="/wishlist" element={<WishList />} />
               <Route path="/scan-tasks" element={<ScanTasks />} />
               <Route path="/search" element={<AdvancedSearch />} />
