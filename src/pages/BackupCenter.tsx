@@ -62,13 +62,32 @@ function generateId() {
 interface DiffSummary {
   materialsAdded: number;
   materialsRemoved: number;
+  materialsChanged: number;
   charactersAdded: number;
   charactersRemoved: number;
+  charactersChanged: number;
   staffAdded: number;
   staffRemoved: number;
+  staffChanged: number;
   wishItemsAdded: number;
   wishItemsRemoved: number;
+  wishItemsChanged: number;
   scanTasksChanged: number;
+}
+
+function countChangedById<T extends { id: string }>(
+  current: T[],
+  snapshot: T[],
+): number {
+  const currentMap = new Map(current.map((item) => [item.id, item]));
+  let changed = 0;
+  snapshot.forEach((sItem) => {
+    const cItem = currentMap.get(sItem.id);
+    if (cItem && JSON.stringify(cItem) !== JSON.stringify(sItem)) {
+      changed++;
+    }
+  });
+  return changed;
 }
 
 function computeDiff(current: SnapshotData, snapshot: SnapshotData): DiffSummary {
@@ -78,6 +97,7 @@ function computeDiff(current: SnapshotData, snapshot: SnapshotData): DiffSummary
   let materialsRemoved = 0;
   snapshot.materials.forEach((m) => { if (!currentMaterialIds.has(m.id)) materialsAdded++; });
   current.materials.forEach((m) => { if (!snapshotMaterialIds.has(m.id)) materialsRemoved++; });
+  const materialsChanged = countChangedById(current.materials, snapshot.materials);
 
   const currentCharIds = new Set(current.characters.map((c) => c.id));
   const snapshotCharIds = new Set(snapshot.characters.map((c) => c.id));
@@ -85,6 +105,7 @@ function computeDiff(current: SnapshotData, snapshot: SnapshotData): DiffSummary
   let charactersRemoved = 0;
   snapshot.characters.forEach((c) => { if (!currentCharIds.has(c.id)) charactersAdded++; });
   current.characters.forEach((c) => { if (!snapshotCharIds.has(c.id)) charactersRemoved++; });
+  const charactersChanged = countChangedById(current.characters, snapshot.characters);
 
   const currentStaffIds = new Set(current.staff.map((s) => s.id));
   const snapshotStaffIds = new Set(snapshot.staff.map((s) => s.id));
@@ -92,6 +113,7 @@ function computeDiff(current: SnapshotData, snapshot: SnapshotData): DiffSummary
   let staffRemoved = 0;
   snapshot.staff.forEach((s) => { if (!currentStaffIds.has(s.id)) staffAdded++; });
   current.staff.forEach((s) => { if (!snapshotStaffIds.has(s.id)) staffRemoved++; });
+  const staffChanged = countChangedById(current.staff, snapshot.staff);
 
   const currentWishIds = new Set(current.wishItems.map((w) => w.id));
   const snapshotWishIds = new Set(snapshot.wishItems.map((w) => w.id));
@@ -99,14 +121,15 @@ function computeDiff(current: SnapshotData, snapshot: SnapshotData): DiffSummary
   let wishItemsRemoved = 0;
   snapshot.wishItems.forEach((w) => { if (!currentWishIds.has(w.id)) wishItemsAdded++; });
   current.wishItems.forEach((w) => { if (!snapshotWishIds.has(w.id)) wishItemsRemoved++; });
+  const wishItemsChanged = countChangedById(current.wishItems, snapshot.wishItems);
 
   const currentScanKeys = Object.keys(current.scanTasks);
   const snapshotScanKeys = Object.keys(snapshot.scanTasks);
   let scanTasksChanged = 0;
   snapshotScanKeys.forEach((k) => { if (!currentScanKeys.includes(k)) scanTasksChanged++; });
   currentScanKeys.forEach((k) => { if (!snapshotScanKeys.includes(k)) scanTasksChanged++; });
-  const commonKeys = currentScanKeys.filter((k) => snapshotScanKeys.includes(k));
-  commonKeys.forEach((k) => {
+  const commonScanKeys = currentScanKeys.filter((k) => snapshotScanKeys.includes(k));
+  commonScanKeys.forEach((k) => {
     if (JSON.stringify(current.scanTasks[k]) !== JSON.stringify(snapshot.scanTasks[k])) {
       scanTasksChanged++;
     }
@@ -115,12 +138,16 @@ function computeDiff(current: SnapshotData, snapshot: SnapshotData): DiffSummary
   return {
     materialsAdded,
     materialsRemoved,
+    materialsChanged,
     charactersAdded,
     charactersRemoved,
+    charactersChanged,
     staffAdded,
     staffRemoved,
+    staffChanged,
     wishItemsAdded,
     wishItemsRemoved,
+    wishItemsChanged,
     scanTasksChanged,
   };
 }
@@ -203,12 +230,16 @@ export function BackupCenter() {
   const diffHasChanges = diffModal
     ? diffModal.diff.materialsAdded > 0 ||
       diffModal.diff.materialsRemoved > 0 ||
+      diffModal.diff.materialsChanged > 0 ||
       diffModal.diff.charactersAdded > 0 ||
       diffModal.diff.charactersRemoved > 0 ||
+      diffModal.diff.charactersChanged > 0 ||
       diffModal.diff.staffAdded > 0 ||
       diffModal.diff.staffRemoved > 0 ||
+      diffModal.diff.staffChanged > 0 ||
       diffModal.diff.wishItemsAdded > 0 ||
       diffModal.diff.wishItemsRemoved > 0 ||
+      diffModal.diff.wishItemsChanged > 0 ||
       diffModal.diff.scanTasksChanged > 0
     : false;
 
@@ -460,6 +491,7 @@ export function BackupCenter() {
                 target={diffModal.snapshot.data.materials.length}
                 added={diffModal.diff.materialsAdded}
                 removed={diffModal.diff.materialsRemoved}
+                changed={diffModal.diff.materialsChanged}
                 icon={<FileText className="w-4 h-4 text-accent-400" />}
               />
               <DiffRow
@@ -468,6 +500,7 @@ export function BackupCenter() {
                 target={diffModal.snapshot.data.characters.length}
                 added={diffModal.diff.charactersAdded}
                 removed={diffModal.diff.charactersRemoved}
+                changed={diffModal.diff.charactersChanged}
                 icon={<Users className="w-4 h-4 text-blue-400" />}
               />
               <DiffRow
@@ -476,6 +509,7 @@ export function BackupCenter() {
                 target={diffModal.snapshot.data.staff.length}
                 added={diffModal.diff.staffAdded}
                 removed={diffModal.diff.staffRemoved}
+                changed={diffModal.diff.staffChanged}
                 icon={<UserCheck className="w-4 h-4 text-green-400" />}
               />
               <DiffRow
@@ -484,6 +518,7 @@ export function BackupCenter() {
                 target={diffModal.snapshot.data.wishItems.length}
                 added={diffModal.diff.wishItemsAdded}
                 removed={diffModal.diff.wishItemsRemoved}
+                changed={diffModal.diff.wishItemsChanged}
                 icon={<Save className="w-4 h-4 text-pink-400" />}
               />
               {diffModal.diff.scanTasksChanged > 0 && (
@@ -536,6 +571,7 @@ function DiffRow({
   target,
   added,
   removed,
+  changed,
   icon,
 }: {
   label: string;
@@ -543,9 +579,10 @@ function DiffRow({
   target: number;
   added: number;
   removed: number;
+  changed: number;
   icon: React.ReactNode;
 }) {
-  const hasChange = added > 0 || removed > 0;
+  const hasChange = added > 0 || removed > 0 || changed > 0;
 
   return (
     <div className={`flex items-center gap-4 px-4 py-3 rounded-lg border ${
@@ -569,6 +606,12 @@ function DiffRow({
             <span className="flex items-center gap-1 text-xs text-red-400">
               <XCircle className="w-3 h-3" />
               -{removed}
+            </span>
+          )}
+          {changed > 0 && (
+            <span className="flex items-center gap-1 text-xs text-yellow-400">
+              <AlertTriangle className="w-3 h-3" />
+              ~{changed}
             </span>
           )}
         </div>
