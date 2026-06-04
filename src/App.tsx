@@ -11,6 +11,7 @@ import { WorkArchive } from '@/pages/WorkArchive';
 import { WorkDetail } from '@/pages/WorkDetail';
 import { DuplicateCheck } from '@/pages/DuplicateCheck';
 import { DataHealthCheck } from '@/pages/DataHealthCheck';
+import { BatchOrganize } from '@/pages/BatchOrganize';
 
 export default function App() {
   return (
@@ -31,6 +32,7 @@ export default function App() {
               <Route path="/tags" element={<TagManagement />} />
               <Route path="/duplicate-check" element={<DuplicateCheck />} />
               <Route path="/health-check" element={<DataHealthCheck />} />
+              <Route path="/batch-organize" element={<BatchOrganize />} />
             </Routes>
           </div>
         </main>

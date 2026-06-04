@@ -5,6 +5,15 @@ import { sampleMaterials, sampleCharacters, sampleStaff } from '../data/sampleDa
 import { searchMaterials, generateId } from '../utils/search';
 import { validateMaterialData, exportToCSV as exportToCSVUtil } from '../utils/csv';
 
+export interface BatchUpdateData {
+  scanStatus?: ScanStatus;
+  work?: string;
+  type?: MaterialType;
+  purchaseSource?: string;
+  appendCharacterIds?: string[];
+  appendStaffIds?: string[];
+}
+
 interface StoreState {
   materials: Material[];
   characters: Character[];
@@ -60,6 +69,8 @@ interface StoreState {
     byPriority: Record<WishPriority, number>;
     totalEstimatedPrice: number;
   };
+
+  batchUpdateMaterials: (ids: string[], updates: BatchUpdateData) => void;
 }
 
 export const useStore = create<StoreState>()(
@@ -427,6 +438,31 @@ export const useStore = create<StoreState>()(
           byPriority,
           totalEstimatedPrice,
         };
+      },
+
+      batchUpdateMaterials: (ids, updates) => {
+        const now = new Date().toISOString();
+        set((state) => ({
+          materials: state.materials.map((m) => {
+            if (!ids.includes(m.id)) return m;
+            const updated = { ...m, updatedAt: now };
+            if (updates.scanStatus !== undefined) updated.scanStatus = updates.scanStatus;
+            if (updates.work !== undefined) updated.work = updates.work;
+            if (updates.type !== undefined) updated.type = updates.type;
+            if (updates.purchaseSource !== undefined) updated.purchaseSource = updates.purchaseSource;
+            if (updates.appendCharacterIds && updates.appendCharacterIds.length > 0) {
+              const existing = new Set(updated.characterIds);
+              updates.appendCharacterIds.forEach((id) => existing.add(id));
+              updated.characterIds = Array.from(existing);
+            }
+            if (updates.appendStaffIds && updates.appendStaffIds.length > 0) {
+              const existing = new Set(updated.staffIds);
+              updates.appendStaffIds.forEach((id) => existing.add(id));
+              updated.staffIds = Array.from(existing);
+            }
+            return updated;
+          }),
+        }));
       },
     }),
     {
