@@ -11,13 +11,15 @@ import {
   BookMarked,
   Copy,
   Activity,
-  Layers
+  Layers,
+  Hash
 } from 'lucide-react';
 
 const navItems = [
   { path: '/', label: '概览', icon: LayoutDashboard },
   { path: '/works', label: '作品档案', icon: BookMarked },
   { path: '/materials', label: '资料管理', icon: Library },
+  { path: '/page-references', label: '页码标注', icon: Hash },
   { path: '/wishlist', label: '愿望清单', icon: Star },
   { path: '/scan-tasks', label: '扫描任务', icon: Scan },
   { path: '/search', label: '高级检索', icon: Search },

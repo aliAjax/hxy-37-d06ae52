@@ -12,6 +12,7 @@ import { WorkDetail } from '@/pages/WorkDetail';
 import { DuplicateCheck } from '@/pages/DuplicateCheck';
 import { DataHealthCheck } from '@/pages/DataHealthCheck';
 import { BatchOrganize } from '@/pages/BatchOrganize';
+import { PageReferenceBrowser } from '@/pages/PageReferenceBrowser';
 
 export default function App() {
   return (
@@ -33,6 +34,7 @@ export default function App() {
               <Route path="/duplicate-check" element={<DuplicateCheck />} />
               <Route path="/health-check" element={<DataHealthCheck />} />
               <Route path="/batch-organize" element={<BatchOrganize />} />
+              <Route path="/page-references" element={<PageReferenceBrowser />} />
             </Routes>
           </div>
         </main>
