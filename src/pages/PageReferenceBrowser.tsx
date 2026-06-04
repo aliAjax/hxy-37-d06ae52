@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
-import { Hash, Plus, Edit2, Trash2, Search, Filter, X, ChevronDown, ChevronRight, BookOpen } from 'lucide-react';
+import { Hash, Plus, Edit2, Trash2, Search, Filter, X, ChevronDown, ChevronRight } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { Material, PageReference, MaterialTypeLabels } from '../types';
+import { PageReference, MaterialTypeLabels } from '../types';
 import { TagSelector } from '../components/TagSelector';
 import { FormInput, FormTextarea } from '../components/FormInput';
 import { Modal } from '../components/Modal';
