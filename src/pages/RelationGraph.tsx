@@ -54,14 +54,18 @@ export function RelationGraph() {
   const materials = useStore((state) => state.materials);
   const characters = useStore((state) => state.characters);
   const staff = useStore((state) => state.staff);
-  const works = useStore((state) => state.getWorks());
+  const getWorks = useStore((state) => state.getWorks);
+  const works = useMemo(() => getWorks(), [getWorks]);
 
   const svgRef = useRef<SVGSVGElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const animationRef = useRef<number>();
   const nodesRef = useRef<GraphNode[]>([]);
   const edgesRef = useRef<GraphEdge[]>([]);
   const draggingRef = useRef<string | null>(null);
   const mousePosRef = useRef({ x: 0, y: 0 });
+  const zoomRef = useRef(1);
+  const offsetRef = useRef({ x: 0, y: 0 });
 
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [viewingMaterial, setViewingMaterial] = useState<Material | null>(null);
@@ -76,6 +80,14 @@ export function RelationGraph() {
   const [startNodeType, setStartNodeType] = useState<NodeType | null>(null);
   const [startNodeSelectorOpen, setStartNodeSelectorOpen] = useState(false);
   const [, forceUpdate] = useState(0);
+
+  useEffect(() => {
+    zoomRef.current = zoom;
+  }, [zoom]);
+
+  useEffect(() => {
+    offsetRef.current = offset;
+  }, [offset]);
 
   const filteredMaterials = useMemo(() => {
     return materials.filter(
@@ -208,7 +220,10 @@ export function RelationGraph() {
       const nodes = nodesRef.current;
       const edges = edgesRef.current;
 
-      if (nodes.length === 0) return;
+      if (nodes.length === 0) {
+        animationRef.current = requestAnimationFrame(simulate);
+        return;
+      }
 
       const repulsion = 8000;
       const attraction = 0.02;
@@ -269,8 +284,13 @@ export function RelationGraph() {
       });
     };
 
-    const animate = () => {
-      simulate();
+    let lastTime = 0;
+    const animate = (time: number) => {
+      if (time - lastTime >= 16) {
+        simulate();
+        forceUpdate((n) => n + 1);
+        lastTime = time;
+      }
       animationRef.current = requestAnimationFrame(animate);
     };
 
@@ -283,19 +303,14 @@ export function RelationGraph() {
     };
   }, []);
 
-  useEffect(() => {
-    const interval = setInterval(() => forceUpdate((n) => n + 1), 16);
-    return () => clearInterval(interval);
-  }, []);
-
   const handleMouseDown = (e: React.MouseEvent, nodeId: string) => {
     e.stopPropagation();
     draggingRef.current = nodeId;
     const rect = svgRef.current?.getBoundingClientRect();
     if (rect) {
       mousePosRef.current = {
-        x: (e.clientX - rect.left - offset.x) / zoom,
-        y: (e.clientY - rect.top - offset.y) / zoom,
+        x: (e.clientX - rect.left - offsetRef.current.x) / zoomRef.current,
+        y: (e.clientY - rect.top - offsetRef.current.y) / zoomRef.current,
       };
     }
   };
@@ -306,8 +321,8 @@ export function RelationGraph() {
 
     if (draggingRef.current) {
       mousePosRef.current = {
-        x: (e.clientX - rect.left - offset.x) / zoom,
-        y: (e.clientY - rect.top - offset.y) / zoom,
+        x: (e.clientX - rect.left - offsetRef.current.x) / zoomRef.current,
+        y: (e.clientY - rect.top - offsetRef.current.y) / zoomRef.current,
       };
     } else if (isPanning) {
       setOffset({
@@ -385,6 +400,9 @@ export function RelationGraph() {
     }
     setStartNodeSelectorOpen(false);
   };
+
+  const nodes = nodesRef.current;
+  const edges = edgesRef.current;
 
   return (
     <div className="space-y-6 animate-fade-in h-[calc(100vh-8rem)] flex flex-col">
@@ -505,7 +523,7 @@ export function RelationGraph() {
           </div>
         </div>
 
-        <div className="flex-1 rounded-xl bg-primary-800/30 border border-accent-500/20 overflow-hidden relative">
+        <div ref={containerRef} className="flex-1 rounded-xl bg-primary-800/30 border border-accent-500/20 overflow-hidden relative">
           <svg
             ref={svgRef}
             className="w-full h-full cursor-grab active:cursor-grabbing"
@@ -516,9 +534,9 @@ export function RelationGraph() {
             onWheel={handleWheel}
           >
             <g transform={`translate(${offset.x}, ${offset.y}) scale(${zoom})`}>
-              {edgesRef.current.map((edge, i) => {
-                const source = nodesRef.current.find((n) => n.id === edge.source);
-                const target = nodesRef.current.find((n) => n.id === edge.target);
+              {edges.map((edge, i) => {
+                const source = nodes.find((n) => n.id === edge.source);
+                const target = nodes.find((n) => n.id === edge.target);
                 if (!source || !target) return null;
                 return (
                   <line
@@ -533,7 +551,7 @@ export function RelationGraph() {
                 );
               })}
 
-              {nodesRef.current.map((node) => {
+              {nodes.map((node) => {
                 const Icon = nodeIcons[node.type];
                 const isSelected = selectedNode?.id === node.id;
                 return (
