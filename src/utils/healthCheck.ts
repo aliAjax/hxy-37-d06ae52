@@ -90,8 +90,16 @@ export const checkInvalidPageRange = (materials: Material[]): HealthIssue[] => {
     if (m.pageEnd > 0 && m.pageEnd < m.pageStart) {
       problems.push('结束页码小于起始页码');
     }
-    if (m.pageEnd > m.pageCount) {
-      problems.push('结束页码大于总页数');
+
+    if (m.type === 'magazine') {
+      const span = m.pageEnd - m.pageStart + 1;
+      if (span !== m.pageCount) {
+        problems.push(`页码跨度（${span}）与切出页数（${m.pageCount}）不一致`);
+      }
+    } else {
+      if (m.pageEnd > m.pageCount) {
+        problems.push('结束页码大于总页数');
+      }
     }
 
     if (problems.length > 0) {
