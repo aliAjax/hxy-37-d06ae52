@@ -80,19 +80,18 @@ export const checkInvalidPageRange = (materials: Material[]): HealthIssue[] => {
   const issues: HealthIssue[] = [];
 
   materials.forEach((m) => {
+    if (m.pageCount <= 0) return;
+
     const problems: string[] = [];
 
     if (m.pageStart < 1) {
       problems.push('起始页码小于 1');
     }
-    if (m.pageEnd < m.pageStart) {
+    if (m.pageEnd > 0 && m.pageEnd < m.pageStart) {
       problems.push('结束页码小于起始页码');
     }
-    if (m.pageCount > 0 && m.pageEnd > m.pageCount) {
+    if (m.pageEnd > m.pageCount) {
       problems.push('结束页码大于总页数');
-    }
-    if (m.pageCount <= 0) {
-      problems.push('总页数为 0 或为空');
     }
 
     if (problems.length > 0) {

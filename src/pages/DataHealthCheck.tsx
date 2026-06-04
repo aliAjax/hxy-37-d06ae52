@@ -9,7 +9,6 @@ import {
   ChevronUp,
   Edit2,
   Tags,
-  RefreshCw,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import {
@@ -32,11 +31,10 @@ export function DataHealthCheck() {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
 
   const issueGroups = useMemo(() => {
     return runAllHealthChecks(materials, characters, staff);
-  }, [materials, characters, staff, refreshKey]);
+  }, [materials, characters, staff]);
 
   const stats = useMemo(() => {
     return getHealthStats(issueGroups);
@@ -74,19 +72,10 @@ export function DataHealthCheck() {
     }
     setShowEditModal(false);
     setEditingMaterial(null);
-    setRefreshKey((prev) => prev + 1);
-  };
-
-  const handleRefresh = () => {
-    setRefreshKey((prev) => prev + 1);
   };
 
   const getSeverityColor = (severity: 'error' | 'warning') => {
     return severity === 'error' ? 'text-red-400' : 'text-yellow-400';
-  };
-
-  const getSeverityBg = (severity: 'error' | 'warning') => {
-    return severity === 'error' ? 'bg-red-500/20' : 'bg-yellow-500/20';
   };
 
   const getSeverityBorder = (severity: 'error' | 'warning') => {
@@ -217,13 +206,6 @@ export function DataHealthCheck() {
             自动扫描收藏数据中的问题，帮助您维护数据完整性
           </p>
         </div>
-        <button
-          onClick={handleRefresh}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg glass hover:bg-primary-700/30 transition-colors text-white"
-        >
-          <RefreshCw className="w-4 h-4" />
-          重新扫描
-        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
