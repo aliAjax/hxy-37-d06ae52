@@ -13,7 +13,8 @@ import {
   Activity,
   Layers,
   Hash,
-  Network
+  Network,
+  Database
 } from 'lucide-react';
 
 const navItems = [
@@ -29,6 +30,7 @@ const navItems = [
   { path: '/duplicate-check', label: '重复检查', icon: Copy },
   { path: '/batch-organize', label: '批量整理', icon: Layers },
   { path: '/import-export', label: '导入导出', icon: Upload },
+  { path: '/backup', label: '备份与恢复', icon: Database },
   { path: '/tags', label: '标签管理', icon: Tags },
 ];
 

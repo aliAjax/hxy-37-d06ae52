@@ -14,6 +14,7 @@ import { DataHealthCheck } from '@/pages/DataHealthCheck';
 import { BatchOrganize } from '@/pages/BatchOrganize';
 import { PageReferenceBrowser } from '@/pages/PageReferenceBrowser';
 import { RelationGraph } from '@/pages/RelationGraph';
+import { BackupCenter } from '@/pages/BackupCenter';
 
 export default function App() {
   return (
@@ -37,6 +38,7 @@ export default function App() {
               <Route path="/health-check" element={<DataHealthCheck />} />
               <Route path="/batch-organize" element={<BatchOrganize />} />
               <Route path="/page-references" element={<PageReferenceBrowser />} />
+              <Route path="/backup" element={<BackupCenter />} />
             </Routes>
           </div>
         </main>
