@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { Network, Filter, X, ZoomIn, ZoomOut, Maximize2, User, Users, BookOpen, FileText, CircleDot, ChevronRight } from 'lucide-react';
+import { Network, Filter, X, ZoomIn, ZoomOut, Maximize2, User, Users, BookOpen, FileText, CircleDot, ChevronRight, Eye } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { Material, Character, Staff, MaterialType, ScanStatus, MaterialTypeLabels, ScanStatusLabels } from '../types';
 import { Modal } from '../components/Modal';
+import { MaterialDetail } from '../components/MaterialDetail';
 
 type NodeType = 'work' | 'character' | 'staff' | 'material';
 
@@ -21,8 +22,6 @@ interface GraphNode {
 interface GraphEdge {
   source: string;
   target: string;
-  sourceNode: GraphNode;
-  targetNode: GraphNode;
 }
 
 interface FilterState {
@@ -57,7 +56,6 @@ export function RelationGraph() {
   const staff = useStore((state) => state.staff);
   const works = useStore((state) => state.getWorks());
 
-  const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const animationRef = useRef<number>();
   const nodesRef = useRef<GraphNode[]>([]);
@@ -66,6 +64,7 @@ export function RelationGraph() {
   const mousePosRef = useRef({ x: 0, y: 0 });
 
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
+  const [viewingMaterial, setViewingMaterial] = useState<Material | null>(null);
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
@@ -76,6 +75,7 @@ export function RelationGraph() {
   });
   const [startNodeType, setStartNodeType] = useState<NodeType | null>(null);
   const [startNodeSelectorOpen, setStartNodeSelectorOpen] = useState(false);
+  const [, forceUpdate] = useState(0);
 
   const filteredMaterials = useMemo(() => {
     return materials.filter(
@@ -93,7 +93,7 @@ export function RelationGraph() {
     const centerX = width / 2;
     const centerY = height / 2;
 
-    const addNode = (id: string, type: NodeType, label: string, data: any, radius?: number) => {
+    const addNode = (id: string, type: NodeType, label: string, data: GraphNode['data'], radius?: number) => {
       if (!nodes.has(id)) {
         const angle = Math.random() * Math.PI * 2;
         const distance = 100 + Math.random() * 200;
@@ -143,21 +143,21 @@ export function RelationGraph() {
       if (material.work) {
         const workNode = nodes.get(`work:${material.work}`);
         if (workNode) {
-          edges.push({ source: materialNode.id, target: workNode.id, sourceNode: materialNode, targetNode: workNode });
+          edges.push({ source: materialNode.id, target: workNode.id });
         }
       }
 
       material.characterIds.forEach((charId) => {
         const charNode = nodes.get(`char:${charId}`);
         if (charNode) {
-          edges.push({ source: materialNode.id, target: charNode.id, sourceNode: materialNode, targetNode: charNode });
+          edges.push({ source: materialNode.id, target: charNode.id });
         }
       });
 
       material.staffIds.forEach((staffId) => {
         const staffNode = nodes.get(`staff:${staffId}`);
         if (staffNode) {
-          edges.push({ source: materialNode.id, target: staffNode.id, sourceNode: materialNode, targetNode: staffNode });
+          edges.push({ source: materialNode.id, target: staffNode.id });
         }
       });
     });
@@ -172,7 +172,7 @@ export function RelationGraph() {
             (e.source === workNode.id && e.target === charNode.id)
         );
         if (!exists) {
-          edges.push({ source: charNode.id, target: workNode.id, sourceNode: charNode, targetNode: workNode });
+          edges.push({ source: charNode.id, target: workNode.id });
         }
       }
     });
@@ -189,7 +189,7 @@ export function RelationGraph() {
               (e.source === workNode.id && e.target === staffNode.id)
           );
           if (!exists) {
-            edges.push({ source: staffNode.id, target: workNode.id, sourceNode: staffNode, targetNode: workNode });
+            edges.push({ source: staffNode.id, target: workNode.id });
           }
         }
       });
@@ -267,8 +267,6 @@ export function RelationGraph() {
           node.y += node.vy;
         }
       });
-
-      nodesRef.current = [...nodes];
     };
 
     const animate = () => {
@@ -285,7 +283,6 @@ export function RelationGraph() {
     };
   }, []);
 
-  const [, forceUpdate] = useState(0);
   useEffect(() => {
     const interval = setInterval(() => forceUpdate((n) => n + 1), 16);
     return () => clearInterval(interval);
@@ -360,7 +357,7 @@ export function RelationGraph() {
   const toggleFilter = (key: 'materialTypes' | 'scanStatuses', value: MaterialType | ScanStatus) => {
     setFilters((prev) => {
       const current = prev[key];
-      if ((current as string[]).includes(value as string)) {
+      if ((current as unknown as string[]).includes(value as string)) {
         return { ...prev, [key]: current.filter((v) => v !== value) };
       } else {
         return { ...prev, [key]: [...current, value as never] };
@@ -410,7 +407,7 @@ export function RelationGraph() {
       </div>
 
       <div className="flex-1 flex gap-6 min-h-0">
-        <div className="w-64 flex-shrink-0 space-y-4">
+        <div className="w-64 flex-shrink-0 space-y-4 overflow-auto">
           <div className="p-4 rounded-xl bg-primary-800/30 border border-accent-500/20">
             <div className="flex items-center gap-2 mb-4">
               <Filter className="w-5 h-5 text-gray-400" />
@@ -508,10 +505,7 @@ export function RelationGraph() {
           </div>
         </div>
 
-        <div
-          ref={containerRef}
-          className="flex-1 rounded-xl bg-primary-800/30 border border-accent-500/20 overflow-hidden relative"
-        >
+        <div className="flex-1 rounded-xl bg-primary-800/30 border border-accent-500/20 overflow-hidden relative">
           <svg
             ref={svgRef}
             className="w-full h-full cursor-grab active:cursor-grabbing"
@@ -533,7 +527,7 @@ export function RelationGraph() {
                     y1={source.y}
                     x2={target.x}
                     y2={target.y}
-                    stroke="rgba(251, 191, 36, 0.3"
+                    stroke="rgba(251, 191, 36, 0.3)"
                     strokeWidth="1.5"
                   />
                 );
@@ -551,7 +545,6 @@ export function RelationGraph() {
                       e.stopPropagation();
                       setSelectedNode(node);
                     }}
-                    className="cursor-pointer"
                     style={{ cursor: 'pointer' }}
                   >
                     <circle
@@ -564,13 +557,16 @@ export function RelationGraph() {
                         filter: isSelected ? 'drop-shadow(0 0 10px rgba(255,255,255,0.5))' : 'none',
                       }}
                     />
-                    <Icon
+                    <foreignObject
                       x={-node.radius * 0.5}
                       y={-node.radius * 0.5}
                       width={node.radius}
                       height={node.radius}
-                      fill="rgba(15, 23, 42, 0.9"
-                    />
+                    >
+                      <div style={{ color: 'rgba(15, 23, 42, 0.9)' }}>
+                        <Icon size={node.radius} />
+                      </div>
+                    </foreignObject>
                     <text
                       y={node.radius + 14}
                       textAnchor="middle"
@@ -626,7 +622,8 @@ export function RelationGraph() {
                   {getRelatedMaterials(selectedNode).map((material) => (
                     <div
                       key={material.id}
-                      className="p-3 rounded-lg bg-primary-700/30 hover:bg-primary-700/50 transition-colors cursor-pointer"
+                      className="p-3 rounded-lg bg-primary-700/30 hover:bg-primary-700/50 transition-colors cursor-pointer group"
+                      onClick={() => setViewingMaterial(material)}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex-1 min-w-0">
@@ -635,7 +632,10 @@ export function RelationGraph() {
                             {MaterialTypeLabels[material.type]} • {material.publisher}
                           </p>
                         </div>
-                        <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                        <div className="flex items-center gap-1">
+                          <Eye className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -654,22 +654,22 @@ export function RelationGraph() {
                       return (
                         <div className="space-y-2 text-sm">
                           <div className="flex justify-between">
-                          <span className="text-gray-400">扫描状态</span>
-                          <span className="text-white">{ScanStatusLabels[material.scanStatus]}</span>
+                            <span className="text-gray-400">扫描状态</span>
+                            <span className="text-white">{ScanStatusLabels[material.scanStatus]}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-400">出版社</span>
+                            <span className="text-white">{material.publisher}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-400">出版日期</span>
+                            <span className="text-white">{material.publishDate}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-400">页数</span>
+                            <span className="text-white">{material.pageCount}页</span>
+                          </div>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">出版社</span>
-                          <span className="text-white">{material.publisher}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">出版日期</span>
-                          <span className="text-white">{material.publishDate}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">页数</span>
-                          <span className="text-white">{material.pageCount}页</span>
-                        </div>
-                      </div>
                       );
                     })()}
                   </div>
@@ -786,6 +786,15 @@ export function RelationGraph() {
               ))}
           </div>
         </div>
+      </Modal>
+
+      <Modal
+        isOpen={!!viewingMaterial}
+        onClose={() => setViewingMaterial(null)}
+        title="资料详情"
+        size="lg"
+      >
+        {viewingMaterial && <MaterialDetail material={viewingMaterial} />}
       </Modal>
     </div>
   );
