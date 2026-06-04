@@ -12,13 +12,15 @@ import {
   Copy,
   Activity,
   Layers,
-  Hash
+  Hash,
+  Network
 } from 'lucide-react';
 
 const navItems = [
   { path: '/', label: '概览', icon: LayoutDashboard },
   { path: '/works', label: '作品档案', icon: BookMarked },
   { path: '/materials', label: '资料管理', icon: Library },
+  { path: '/relation-graph', label: '关系图谱', icon: Network },
   { path: '/page-references', label: '页码标注', icon: Hash },
   { path: '/wishlist', label: '愿望清单', icon: Star },
   { path: '/scan-tasks', label: '扫描任务', icon: Scan },

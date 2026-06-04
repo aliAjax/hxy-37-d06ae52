@@ -13,6 +13,7 @@ import { DuplicateCheck } from '@/pages/DuplicateCheck';
 import { DataHealthCheck } from '@/pages/DataHealthCheck';
 import { BatchOrganize } from '@/pages/BatchOrganize';
 import { PageReferenceBrowser } from '@/pages/PageReferenceBrowser';
+import { RelationGraph } from '@/pages/RelationGraph';
 
 export default function App() {
   return (
@@ -26,6 +27,7 @@ export default function App() {
               <Route path="/materials" element={<MaterialList />} />
               <Route path="/works" element={<WorkArchive />} />
               <Route path="/works/:workName" element={<WorkDetail />} />
+              <Route path="/relation-graph" element={<RelationGraph />} />
               <Route path="/wishlist" element={<WishList />} />
               <Route path="/scan-tasks" element={<ScanTasks />} />
               <Route path="/search" element={<AdvancedSearch />} />
