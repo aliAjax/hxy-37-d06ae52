@@ -143,7 +143,24 @@ export function BatchOrganize() {
   );
 
   const hasAnyOperation =
-    applyScanStatus || applyWork || applyType || applyPurchaseSource || appendCharacters || appendStaffTags;
+    (applyScanStatus && batchData.scanStatus !== undefined) ||
+    (applyWork && batchData.work !== undefined && batchData.work !== '') ||
+    (applyType && batchData.type !== undefined) ||
+    (applyPurchaseSource && batchData.purchaseSource !== undefined && batchData.purchaseSource !== '') ||
+    (appendCharacters && batchData.appendCharacterIds && batchData.appendCharacterIds.length > 0) ||
+    (appendStaffTags && batchData.appendStaffIds && batchData.appendStaffIds.length > 0);
+
+  const hasAnyActualChange = useMemo(() => {
+    return selectedMaterials.some((m) => {
+      if (batchData.scanStatus !== undefined && m.scanStatus !== batchData.scanStatus) return true;
+      if (batchData.work !== undefined && batchData.work !== '' && m.work !== batchData.work) return true;
+      if (batchData.type !== undefined && m.type !== batchData.type) return true;
+      if (batchData.purchaseSource !== undefined && batchData.purchaseSource !== '' && m.purchaseSource !== batchData.purchaseSource) return true;
+      if (batchData.appendCharacterIds && batchData.appendCharacterIds.some((id) => !m.characterIds.includes(id))) return true;
+      if (batchData.appendStaffIds && batchData.appendStaffIds.some((id) => !m.staffIds.includes(id))) return true;
+      return false;
+    });
+  }, [selectedMaterials, batchData]);
 
   const getCharacterName = (id: string) => {
     const c = characters.find((ch) => ch.id === id);
@@ -706,6 +723,14 @@ export function BatchOrganize() {
               <h3 className="text-sm font-medium text-gray-300">
                 受影响资料 <span className="text-accent-400">({selectedMaterials.length})</span>
               </h3>
+              {!hasAnyActualChange && (
+                <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+                  <AlertTriangle className="w-4 h-4 text-yellow-400 flex-shrink-0" />
+                  <span className="text-sm text-yellow-300">
+                    当前设置对选中的资料无实际变更（所有值与原值相同，标签也已存在）
+                  </span>
+                </div>
+              )}
               <div className="max-h-64 overflow-y-auto glass rounded-xl">
                 <table className="w-full">
                   <thead>
@@ -777,7 +802,8 @@ export function BatchOrganize() {
               </button>
               <button
                 onClick={handleApply}
-                className="flex items-center gap-2 px-6 py-3 rounded-lg btn-primary text-primary-900 font-medium"
+                disabled={!hasAnyActualChange}
+                className="flex items-center gap-2 px-6 py-3 rounded-lg btn-primary text-primary-900 font-medium disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <CheckSquare className="w-4 h-4" />
                 确认应用 ({selectedMaterials.length} 条)
