@@ -6,6 +6,7 @@ import { AdvancedSearch } from '@/pages/AdvancedSearch';
 import { ImportExport } from '@/pages/ImportExport';
 import { TagManagement } from '@/pages/TagManagement';
 import { ScanTasks } from '@/pages/ScanTasks';
+import { WishList } from '@/pages/WishList';
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/materials" element={<MaterialList />} />
+              <Route path="/wishlist" element={<WishList />} />
               <Route path="/scan-tasks" element={<ScanTasks />} />
               <Route path="/search" element={<AdvancedSearch />} />
               <Route path="/import-export" element={<ImportExport />} />

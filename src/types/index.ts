@@ -1,6 +1,7 @@
 export type MaterialType = 'artbook' | 'storyboard' | 'setting' | 'magazine' | 'special';
 export type ScanStatus = 'unscanned' | 'partial' | 'completed';
 export type ScanPriority = 'low' | 'medium' | 'high' | 'urgent';
+export type WishPriority = 'low' | 'medium' | 'high' | 'urgent';
 
 export const MaterialTypeLabels: Record<MaterialType, string> = {
   artbook: '原画集',
@@ -21,6 +22,13 @@ export const ScanPriorityLabels: Record<ScanPriority, string> = {
   medium: '中',
   high: '高',
   urgent: '紧急',
+};
+
+export const WishPriorityLabels: Record<WishPriority, string> = {
+  low: '低',
+  medium: '中',
+  high: '高',
+  urgent: '必入',
 };
 
 export interface Material {
@@ -144,4 +152,24 @@ export interface ScanTaskFilters {
   work?: string;
   type?: MaterialType;
   priority?: ScanPriority;
+}
+
+export interface WishItem {
+  id: string;
+  title: string;
+  work: string;
+  type: MaterialType;
+  estimatedPrice: number;
+  purchaseChannel: string;
+  priority: WishPriority;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WishFilters {
+  work?: string;
+  type?: MaterialType;
+  priority?: WishPriority;
+  keyword?: string;
 }

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Material, Character, Staff, SearchFilters, CSVRow, MaterialType, ScanStatus, ScanTask } from '../types';
+import { Material, Character, Staff, SearchFilters, CSVRow, MaterialType, ScanStatus, ScanTask, WishItem, WishPriority } from '../types';
 import { sampleMaterials, sampleCharacters, sampleStaff } from '../data/sampleData';
 import { searchMaterials, generateId } from '../utils/search';
 import { validateMaterialData, exportToCSV as exportToCSVUtil } from '../utils/csv';
@@ -10,6 +10,7 @@ interface StoreState {
   characters: Character[];
   staff: Staff[];
   scanTasks: Record<string, ScanTask>;
+  wishItems: WishItem[];
   initialized: boolean;
 
   addMaterial: (material: Omit<Material, 'id' | 'createdAt' | 'updatedAt'>) => void;
@@ -48,6 +49,17 @@ interface StoreState {
   getScanTask: (materialId: string) => ScanTask | undefined;
   deleteScanTask: (materialId: string) => void;
   getAllScanTasks: () => ScanTask[];
+
+  addWishItem: (item: Omit<WishItem, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  updateWishItem: (id: string, updates: Partial<WishItem>) => void;
+  deleteWishItem: (id: string) => void;
+  getWishItem: (id: string) => WishItem | undefined;
+  convertWishToMaterial: (wishId: string) => void;
+  getWishStats: () => {
+    total: number;
+    byPriority: Record<WishPriority, number>;
+    totalEstimatedPrice: number;
+  };
 }
 
 export const useStore = create<StoreState>()(
@@ -57,6 +69,7 @@ export const useStore = create<StoreState>()(
       characters: [],
       staff: [],
       scanTasks: {},
+      wishItems: [],
       initialized: false,
 
       addMaterial: (material) => {
@@ -329,6 +342,91 @@ export const useStore = create<StoreState>()(
 
       getAllScanTasks: () => {
         return Object.values(get().scanTasks);
+      },
+
+      addWishItem: (item) => {
+        const now = new Date().toISOString();
+        const newWishItem: WishItem = {
+          ...item,
+          id: generateId(),
+          createdAt: now,
+          updatedAt: now,
+        };
+        set((state) => ({
+          wishItems: [newWishItem, ...state.wishItems],
+        }));
+      },
+
+      updateWishItem: (id, updates) => {
+        set((state) => ({
+          wishItems: state.wishItems.map((w) =>
+            w.id === id ? { ...w, ...updates, updatedAt: new Date().toISOString() } : w
+          ),
+        }));
+      },
+
+      deleteWishItem: (id) => {
+        set((state) => ({
+          wishItems: state.wishItems.filter((w) => w.id !== id),
+        }));
+      },
+
+      getWishItem: (id) => {
+        return get().wishItems.find((w) => w.id === id);
+      },
+
+      convertWishToMaterial: (wishId) => {
+        const wish = get().wishItems.find((w) => w.id === wishId);
+        if (!wish) return;
+
+        const now = new Date().toISOString();
+        const newMaterial: Material = {
+          id: generateId(),
+          title: wish.title,
+          type: wish.type,
+          work: wish.work,
+          publisher: '',
+          publishDate: '',
+          pageCount: 0,
+          pageStart: 1,
+          pageEnd: 0,
+          purchaseSource: wish.purchaseChannel,
+          scanStatus: 'unscanned',
+          copyrightNote: '',
+          description: wish.notes,
+          characterIds: [],
+          staffIds: [],
+          pageReferences: [],
+          createdAt: now,
+          updatedAt: now,
+        };
+
+        set((state) => ({
+          materials: [newMaterial, ...state.materials],
+          wishItems: state.wishItems.filter((w) => w.id !== wishId),
+        }));
+      },
+
+      getWishStats: () => {
+        const { wishItems } = get();
+        const byPriority: Record<WishPriority, number> = {
+          low: 0,
+          medium: 0,
+          high: 0,
+          urgent: 0,
+        };
+        let totalEstimatedPrice = 0;
+
+        wishItems.forEach((w) => {
+          byPriority[w.priority]++;
+          totalEstimatedPrice += w.estimatedPrice || 0;
+        });
+
+        return {
+          total: wishItems.length,
+          byPriority,
+          totalEstimatedPrice,
+        };
       },
     }),
     {
