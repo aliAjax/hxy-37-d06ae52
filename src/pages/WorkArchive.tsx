@@ -40,12 +40,21 @@ export function WorkArchive() {
 
     workMap.forEach((workMaterials, workName) => {
       const workCharacterIds = new Set<string>();
-      const workStaffIds = new Set<string>();
+      const workStaffIdsFromMaterials = new Set<string>();
+      const workStaffIdsFromWorks = new Set<string>();
 
       workMaterials.forEach((m) => {
         m.characterIds.forEach((id) => workCharacterIds.add(id));
-        m.staffIds.forEach((id) => workStaffIds.add(id));
+        m.staffIds.forEach((id) => workStaffIdsFromMaterials.add(id));
       });
+
+      staff.forEach((s) => {
+        if (s.works && s.works.some((w) => w.includes(workName) || workName.includes(w))) {
+          workStaffIdsFromWorks.add(s.id);
+        }
+      });
+
+      const allWorkStaffIds = new Set([...workStaffIdsFromMaterials, ...workStaffIdsFromWorks]);
 
       const scanStatus = {
         unscanned: 0,
@@ -71,7 +80,7 @@ export function WorkArchive() {
         materials: workMaterials,
         materialCount: totalMaterials,
         characterCount: workCharacterIds.size,
-        staffCount: workStaffIds.size,
+        staffCount: allWorkStaffIds.size,
         scanStatus,
         scanProgress,
         latestMaterial: latestMaterial || null,
@@ -82,7 +91,7 @@ export function WorkArchive() {
     return stats.sort((a, b) =>
       new Date(b.latestUpdate).getTime() - new Date(a.latestUpdate).getTime()
     );
-  }, [materials]);
+  }, [materials, staff]);
 
   const getScanProgressColor = (progress: number) => {
     if (progress === 100) return 'bg-green-500';

@@ -37,6 +37,30 @@ interface MaterialWithRelations extends Material {
   staff: Staff[];
 }
 
+interface StaffWithSource extends Staff {
+  source: 'material' | 'works' | 'both';
+  relatedMaterialCount: number;
+}
+
+interface PageReferenceWithDetails extends PageReference {
+  materialId: string;
+  materialTitle: string;
+  characters: Character[];
+  staff: Staff[];
+}
+
+interface PageRefCharacterStats {
+  character: Character;
+  pageRefCount: number;
+  pageReferences: PageReferenceWithDetails[];
+}
+
+interface PageRefStaffStats {
+  staff: Staff;
+  pageRefCount: number;
+  pageReferences: PageReferenceWithDetails[];
+}
+
 export function WorkDetail() {
   const { workName } = useParams<{ workName: string }>();
   const decodedWorkName = decodeURIComponent(workName || '');
@@ -54,12 +78,18 @@ export function WorkDetail() {
     );
 
     const workCharacterIds = new Set<string>();
-    const workStaffIds = new Set<string>();
+    const workStaffIdsFromMaterials = new Set<string>();
+    const workStaffIdsFromWorks = new Set<string>();
     const allPageReferences: Array<PageReference & { materialId: string; materialTitle: string }> = [];
+
+    const staffMaterialCount: Record<string, number> = {};
 
     workMaterials.forEach((m) => {
       m.characterIds.forEach((id) => workCharacterIds.add(id));
-      m.staffIds.forEach((id) => workStaffIds.add(id));
+      m.staffIds.forEach((id) => {
+        workStaffIdsFromMaterials.add(id);
+        staffMaterialCount[id] = (staffMaterialCount[id] || 0) + 1;
+      });
       m.pageReferences.forEach((pr) => {
         allPageReferences.push({
           ...pr,
@@ -69,8 +99,35 @@ export function WorkDetail() {
       });
     });
 
+    allStaff.forEach((s) => {
+      if (s.works && s.works.some((w) => w.includes(decodedWorkName) || decodedWorkName.includes(w))) {
+        workStaffIdsFromWorks.add(s.id);
+        if (!staffMaterialCount[s.id]) {
+          staffMaterialCount[s.id] = 0;
+        }
+      }
+    });
+
+    const allWorkStaffIds = new Set([...workStaffIdsFromMaterials, ...workStaffIdsFromWorks]);
+
     const workCharacters = allCharacters.filter((c) => workCharacterIds.has(c.id));
-    const workStaff = allStaff.filter((s) => workStaffIds.has(s.id));
+    const workStaff: StaffWithSource[] = allStaff
+      .filter((s) => allWorkStaffIds.has(s.id))
+      .map((s) => {
+        const fromMaterial = workStaffIdsFromMaterials.has(s.id);
+        const fromWorks = workStaffIdsFromWorks.has(s.id);
+        let source: 'material' | 'works' | 'both' = 'material';
+        if (fromMaterial && fromWorks) {
+          source = 'both';
+        } else if (fromWorks) {
+          source = 'works';
+        }
+        return {
+          ...s,
+          source,
+          relatedMaterialCount: staffMaterialCount[s.id] || 0,
+        };
+      });
 
     const materialsWithRelations: MaterialWithRelations[] = workMaterials.map((m) => ({
       ...m,
@@ -92,7 +149,15 @@ export function WorkDetail() {
       ? Math.round((scanStatus.completed / workMaterials.length) * 100)
       : 0;
 
-    const allPageRefsWithDetails = allPageReferences
+    const pageRefCharacterIds = new Set<string>();
+    const pageRefStaffIds = new Set<string>();
+
+    allPageReferences.forEach((pr) => {
+      pr.characterIds.forEach((id) => pageRefCharacterIds.add(id));
+      pr.staffIds.forEach((id) => pageRefStaffIds.add(id));
+    });
+
+    const allPageRefsWithDetails: PageReferenceWithDetails[] = allPageReferences
       .sort((a, b) => a.pageNumber - b.pageNumber)
       .map((pr) => ({
         ...pr,
@@ -104,12 +169,48 @@ export function WorkDetail() {
           .filter(Boolean) as Staff[],
       }));
 
+    const pageRefCharacterStats: PageRefCharacterStats[] = [];
+    pageRefCharacterIds.forEach((charId) => {
+      const char = allCharacters.find((c) => c.id === charId);
+      if (char) {
+        const relatedRefs = allPageRefsWithDetails.filter((pr) =>
+          pr.characterIds.includes(charId)
+        );
+        pageRefCharacterStats.push({
+          character: char,
+          pageRefCount: relatedRefs.length,
+          pageReferences: relatedRefs,
+        });
+      }
+    });
+    pageRefCharacterStats.sort((a, b) => b.pageRefCount - a.pageRefCount);
+
+    const pageRefStaffStats: PageRefStaffStats[] = [];
+    pageRefStaffIds.forEach((staffId) => {
+      const s = allStaff.find((st) => st.id === staffId);
+      if (s) {
+        const relatedRefs = allPageRefsWithDetails.filter((pr) =>
+          pr.staffIds.includes(staffId)
+        );
+        pageRefStaffStats.push({
+          staff: s,
+          pageRefCount: relatedRefs.length,
+          pageReferences: relatedRefs,
+        });
+      }
+    });
+    pageRefStaffStats.sort((a, b) => b.pageRefCount - a.pageRefCount);
+
     return {
       name: decodedWorkName,
       materials: materialsWithRelations,
       characters: workCharacters,
       staff: workStaff,
       pageReferences: allPageRefsWithDetails,
+      pageRefCharacterStats,
+      pageRefStaffStats,
+      pageRefCharacterCount: pageRefCharacterIds.size,
+      pageRefStaffCount: pageRefStaffIds.size,
       scanStatus,
       scanProgress,
       materialCount: workMaterials.length,
@@ -524,81 +625,175 @@ export function WorkDetail() {
                   <p className="text-gray-400">暂无制作人员数据</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {workData.staff.map((s) => {
-                    const staffMaterials = workData.materials.filter((m) =>
-                      m.staffIds.includes(s.id)
-                    );
-                    return (
-                      <div
-                        key={s.id}
-                        className="p-4 rounded-lg bg-primary-800/30 hover:bg-primary-700/40 transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-lg bg-green-500/20">
-                            <User className="w-5 h-5 text-green-400" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-medium text-white">{s.name}</h4>
-                            <p className="text-sm text-gray-400">{s.role}</p>
-                            <p className="text-xs text-gray-500 mt-1">
-                              参与 {staffMaterials.length} 本资料
-                            </p>
+                <>
+                  <div className="flex gap-4 mb-4 text-xs text-gray-500">
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-green-500" />
+                      资料关联
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-blue-500" />
+                      Works字段
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-accent-500" />
+                      两者都有
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {workData.staff.map((s) => {
+                      const sourceColors = {
+                        material: 'border-l-2 border-l-green-500',
+                        works: 'border-l-2 border-l-blue-500',
+                        both: 'border-l-2 border-l-accent-500',
+                      };
+                      const sourceLabels = {
+                        material: '资料关联',
+                        works: 'Works字段',
+                        both: '双重关联',
+                      };
+                      return (
+                        <div
+                          key={s.id}
+                          className={`p-4 rounded-lg bg-primary-800/30 hover:bg-primary-700/40 transition-colors ${sourceColors[s.source]}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-green-500/20">
+                              <User className="w-5 h-5 text-green-400" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-medium text-white">{s.name}</h4>
+                                <span className={`px-2 py-0.5 text-xs rounded-full ${
+                                  s.source === 'material' ? 'bg-green-500/20 text-green-400' :
+                                  s.source === 'works' ? 'bg-blue-500/20 text-blue-400' :
+                                  'bg-accent-500/20 text-accent-400'
+                                }`}>
+                                  {sourceLabels[s.source]}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-400">{s.role}</p>
+                              <div className="flex gap-4 mt-1 text-xs text-gray-500">
+                                <span>参与 {s.relatedMaterialCount} 本资料</span>
+                                {s.works && s.works.length > 0 && (
+                                  <span>Works: {s.works.join(', ')}</span>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                </>
               )}
             </div>
           )}
 
           {activeTab === 'pages' && (
-            <div className="space-y-3">
-              {workData.pageReferences.length === 0 ? (
-                <div className="text-center py-12">
-                  <FileText className="w-12 h-12 mx-auto text-gray-500 mb-4" />
-                  <p className="text-gray-400">暂无页码标注</p>
-                </div>
-              ) : (
-                workData.pageReferences.map((pr, index) => (
-                  <div
-                    key={`${pr.materialId}-${pr.id}-${index}`}
-                    className="p-4 rounded-lg bg-primary-800/30 hover:bg-primary-700/40 transition-colors"
-                  >
-                    <div className="flex items-start gap-4">
-                      <span className="px-3 py-1.5 text-sm font-mono rounded-lg bg-accent-500/20 text-accent-400 whitespace-nowrap">
-                        P{pr.pageNumber}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-gray-300">{pr.description}</p>
-                        <p className="text-xs text-gray-500 mt-2">
-                          来源: {pr.materialTitle}
-                        </p>
-                        <div className="flex flex-wrap gap-3 mt-2">
-                          {pr.characters.length > 0 && (
-                            <div className="flex items-center gap-1 text-xs">
-                              <Users className="w-3 h-3 text-purple-400" />
-                              <span className="text-gray-400">
-                                {pr.characters.map((c) => c.name).join(', ')}
-                              </span>
-                            </div>
-                          )}
-                          {pr.staff.length > 0 && (
-                            <div className="flex items-center gap-1 text-xs">
-                              <User className="w-3 h-3 text-green-400" />
-                              <span className="text-gray-400">
-                                {pr.staff.map((s) => s.name).join(', ')}
-                              </span>
-                            </div>
-                          )}
-                        </div>
+            <div className="space-y-6">
+              {(workData.pageRefCharacterStats.length > 0 || workData.pageRefStaffStats.length > 0) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {workData.pageRefCharacterStats.length > 0 && (
+                    <div className="p-4 rounded-lg bg-primary-800/30">
+                      <h4 className="font-medium text-white mb-3 flex items-center gap-2">
+                        <Users className="w-4 h-4 text-purple-400" />
+                        角色页码标注统计
+                      </h4>
+                      <div className="space-y-2">
+                        {workData.pageRefCharacterStats.map((stat) => (
+                          <div
+                            key={stat.character.id}
+                            className="flex items-center justify-between p-2 rounded bg-primary-700/30"
+                          >
+                            <span className="text-gray-300">{stat.character.name}</span>
+                            <span className="px-2 py-0.5 text-xs rounded-full bg-purple-500/20 text-purple-400">
+                              {stat.pageRefCount} 处标注
+                            </span>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  </div>
-                ))
+                  )}
+
+                  {workData.pageRefStaffStats.length > 0 && (
+                    <div className="p-4 rounded-lg bg-primary-800/30">
+                      <h4 className="font-medium text-white mb-3 flex items-center gap-2">
+                        <User className="w-4 h-4 text-green-400" />
+                        制作人员页码标注统计
+                      </h4>
+                      <div className="space-y-2">
+                        {workData.pageRefStaffStats.map((stat) => (
+                          <div
+                            key={stat.staff.id}
+                            className="flex items-center justify-between p-2 rounded bg-primary-700/30"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <span className="text-gray-300">{stat.staff.name}</span>
+                              <span className="text-xs text-gray-500 ml-2">({stat.staff.role})</span>
+                            </div>
+                            <span className="px-2 py-0.5 text-xs rounded-full bg-green-500/20 text-green-400 ml-2">
+                              {stat.pageRefCount} 处标注
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
+
+              <div>
+                <h4 className="font-medium text-white mb-3 flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-accent-500" />
+                  页码标注列表
+                </h4>
+                {workData.pageReferences.length === 0 ? (
+                  <div className="text-center py-12">
+                    <FileText className="w-12 h-12 mx-auto text-gray-500 mb-4" />
+                    <p className="text-gray-400">暂无页码标注</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {workData.pageReferences.map((pr, index) => (
+                      <div
+                        key={`${pr.materialId}-${pr.id}-${index}`}
+                        className="p-4 rounded-lg bg-primary-800/30 hover:bg-primary-700/40 transition-colors"
+                      >
+                        <div className="flex items-start gap-4">
+                          <span className="px-3 py-1.5 text-sm font-mono rounded-lg bg-accent-500/20 text-accent-400 whitespace-nowrap">
+                            P{pr.pageNumber}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-gray-300">{pr.description}</p>
+                            <p className="text-xs text-gray-500 mt-2">
+                              来源: {pr.materialTitle}
+                            </p>
+                            <div className="flex flex-wrap gap-3 mt-2">
+                              {pr.characters.length > 0 && (
+                                <div className="flex items-center gap-1 text-xs">
+                                  <Users className="w-3 h-3 text-purple-400" />
+                                  <span className="text-gray-400">
+                                    {pr.characters.map((c) => c.name).join(', ')}
+                                  </span>
+                                </div>
+                              )}
+                              {pr.staff.length > 0 && (
+                                <div className="flex items-center gap-1 text-xs">
+                                  <User className="w-3 h-3 text-green-400" />
+                                  <span className="text-gray-400">
+                                    {pr.staff.map((s) => s.name).join(', ')}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
