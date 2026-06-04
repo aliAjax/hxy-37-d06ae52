@@ -57,7 +57,6 @@ export function WishList() {
   const updateWishItem = useStore((state) => state.updateWishItem);
   const deleteWishItem = useStore((state) => state.deleteWishItem);
   const convertWishToMaterial = useStore((state) => state.convertWishToMaterial);
-  const getWishStats = useStore((state) => state.getWishStats);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<WishItem | null>(null);
@@ -75,7 +74,26 @@ export function WishList() {
     return Array.from(new Set(wishItems.map((w) => w.work))).filter(Boolean).sort();
   }, [wishItems]);
 
-  const stats = useMemo(() => getWishStats(), [wishItems, getWishStats]);
+  const stats = useMemo(() => {
+    const byPriority: Record<WishPriority, number> = {
+      low: 0,
+      medium: 0,
+      high: 0,
+      urgent: 0,
+    };
+    let totalEstimatedPrice = 0;
+
+    wishItems.forEach((w) => {
+      byPriority[w.priority]++;
+      totalEstimatedPrice += w.estimatedPrice || 0;
+    });
+
+    return {
+      total: wishItems.length,
+      byPriority,
+      totalEstimatedPrice,
+    };
+  }, [wishItems]);
 
   const filteredItems = useMemo(() => {
     let result = [...wishItems];
