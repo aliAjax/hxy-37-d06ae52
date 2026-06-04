@@ -8,7 +8,8 @@ import {
   BookOpen,
   Scan,
   Star,
-  BookMarked
+  BookMarked,
+  Copy
 } from 'lucide-react';
 
 const navItems = [
@@ -18,6 +19,7 @@ const navItems = [
   { path: '/wishlist', label: '愿望清单', icon: Star },
   { path: '/scan-tasks', label: '扫描任务', icon: Scan },
   { path: '/search', label: '高级检索', icon: Search },
+  { path: '/duplicate-check', label: '重复检查', icon: Copy },
   { path: '/import-export', label: '导入导出', icon: Upload },
   { path: '/tags', label: '标签管理', icon: Tags },
 ];

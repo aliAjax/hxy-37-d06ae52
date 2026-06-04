@@ -9,6 +9,7 @@ import { ScanTasks } from '@/pages/ScanTasks';
 import { WishList } from '@/pages/WishList';
 import { WorkArchive } from '@/pages/WorkArchive';
 import { WorkDetail } from '@/pages/WorkDetail';
+import { DuplicateCheck } from '@/pages/DuplicateCheck';
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
               <Route path="/search" element={<AdvancedSearch />} />
               <Route path="/import-export" element={<ImportExport />} />
               <Route path="/tags" element={<TagManagement />} />
+              <Route path="/duplicate-check" element={<DuplicateCheck />} />
             </Routes>
           </div>
         </main>
