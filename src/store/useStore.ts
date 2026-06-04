@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Material, Character, Staff, SearchFilters, CSVRow, MaterialType, ScanStatus, ScanTask, WishItem, WishPriority } from '../types';
+import { Material, Character, Staff, SearchFilters, CSVRow, MaterialType, ScanStatus, ScanTask, WishItem, WishPriority, RowValidationResult } from '../types';
 import { sampleMaterials, sampleCharacters, sampleStaff } from '../data/sampleData';
 import { searchMaterials, generateId } from '../utils/search';
 import { validateMaterialData, exportToCSV as exportToCSVUtil } from '../utils/csv';
@@ -39,6 +39,7 @@ interface StoreState {
   getOrCreateStaff: (name: string, role: string) => Staff;
 
   importFromCSV: (data: CSVRow[]) => { success: number; failed: number; errors: string[] };
+  importFromPreflight: (validRows: RowValidationResult[]) => { success: number; skipped: number };
   exportToCSV: (materialIds?: string[]) => string;
 
   initializeWithSampleData: () => void;
@@ -256,6 +257,48 @@ export const useStore = create<StoreState>()(
         }));
 
         return { success, failed, errors };
+      },
+
+      importFromPreflight: (validRows) => {
+        let success = 0;
+        let skipped = 0;
+        const newMaterials: Material[] = [];
+        const now = new Date().toISOString();
+
+        validRows.forEach((row) => {
+          if (!row.material) {
+            skipped++;
+            return;
+          }
+
+          const characterIds: string[] = [];
+          row.characterNames.forEach((charName) => {
+            const char = get().getOrCreateCharacter(charName, row.material!.work);
+            characterIds.push(char.id);
+          });
+
+          const staffIds: string[] = [];
+          row.staffNames.forEach((staffName) => {
+            const s = get().getOrCreateStaff(staffName, '其他');
+            staffIds.push(s.id);
+          });
+
+          newMaterials.push({
+            ...row.material,
+            id: generateId(),
+            characterIds,
+            staffIds,
+            createdAt: now,
+            updatedAt: now,
+          });
+          success++;
+        });
+
+        set((state) => ({
+          materials: [...newMaterials, ...state.materials],
+        }));
+
+        return { success, skipped };
       },
 
       exportToCSV: (materialIds) => {

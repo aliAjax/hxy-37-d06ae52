@@ -1,23 +1,24 @@
 import { useState } from 'react';
-import { Upload, Download, FileText, CheckCircle, AlertCircle, Trash2 } from 'lucide-react';
+import { Upload, Download, FileText, CheckCircle, Trash2, ArrowLeft } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { parseCSV, downloadCSV } from '../utils/csv';
-import { CSVRow } from '../types';
+import { CSVRow, RowValidationResult } from '../types';
+import { ImportPreflight } from '../components/ImportPreflight';
 
 export function ImportExport() {
   const materials = useStore((state) => state.materials);
-  const importFromCSV = useStore((state) => state.importFromCSV);
+  const characters = useStore((state) => state.characters);
+  const staff = useStore((state) => state.staff);
+  const importFromPreflight = useStore((state) => state.importFromPreflight);
   const exportToCSV = useStore((state) => state.exportToCSV);
   const clearAllData = useStore((state) => state.clearAllData);
 
-  const [importData, setImportData] = useState<CSVRow[] | null>(null);
-  const [importPreview, setImportPreview] = useState<CSVRow[] | null>(null);
+  const [rawData, setRawData] = useState<CSVRow[] | null>(null);
+  const [showPreflight, setShowPreflight] = useState(false);
   const [importResult, setImportResult] = useState<{
     success: number;
-    failed: number;
-    errors: string[];
+    skipped: number;
   } | null>(null);
-  const [isImporting, setIsImporting] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -26,24 +27,28 @@ export function ImportExport() {
 
     try {
       const data = await parseCSV(file);
-      const validData = data.filter((row: CSVRow) => row.标题 || row['标题']);
-      setImportData(validData);
-      setImportPreview(validData.slice(0, 5));
+      const validData = data.filter((row: CSVRow) => {
+        const hasContent = Object.values(row).some((v) => String(v || '').trim());
+        return hasContent;
+      });
+      setRawData(validData);
+      setShowPreflight(true);
       setImportResult(null);
     } catch (error) {
       console.error('Parse error:', error);
     }
   };
 
-  const handleImport = () => {
-    if (!importData) return;
-
-    setIsImporting(true);
-    const result = importFromCSV(importData);
+  const handlePreflightConfirm = (validRows: RowValidationResult[]) => {
+    const result = importFromPreflight(validRows);
     setImportResult(result);
-    setIsImporting(false);
-    setImportData(null);
-    setImportPreview(null);
+    setShowPreflight(false);
+    setRawData(null);
+  };
+
+  const handlePreflightCancel = () => {
+    setShowPreflight(false);
+    setRawData(null);
   };
 
   const handleExport = () => {
@@ -56,6 +61,30 @@ export function ImportExport() {
     clearAllData();
     setShowClearConfirm(false);
   };
+
+  if (showPreflight && rawData) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <button
+          onClick={handlePreflightCancel}
+          className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          返回导入页面
+        </button>
+        <div className="glass rounded-2xl p-6">
+          <ImportPreflight
+            rawData={rawData}
+            existingMaterials={materials}
+            existingCharacters={characters}
+            existingStaff={staff}
+            onConfirm={handlePreflightConfirm}
+            onCancel={handlePreflightCancel}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -97,71 +126,40 @@ export function ImportExport() {
               </label>
             </div>
 
-            {importPreview && (
-              <div>
-                <h3 className="text-white font-medium mb-3">预览数据 ({importData?.length} 条)</h3>
-                <div className="overflow-x-auto rounded-lg border border-accent-500/20">
-                  <table className="w-full text-sm">
-                    <thead className="bg-primary-800/50">
-                      <tr>
-                        <th className="px-3 py-2 text-left text-gray-300">标题</th>
-                        <th className="px-3 py-2 text-left text-gray-300">类型</th>
-                        <th className="px-3 py-2 text-left text-gray-300">作品</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {importPreview.map((row, index) => (
-                        <tr key={index} className="border-t border-accent-500/10">
-                          <td className="px-3 py-2 text-white">{row.标题 || row['标题']}</td>
-                          <td className="px-3 py-2 text-gray-300">{row.类型 || row['类型']}</td>
-                          <td className="px-3 py-2 text-gray-300">{row.作品 || row['作品']}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {importData && importData.length > 5 && (
-                  <p className="text-gray-400 text-sm mt-2">
-                    ...还有 {importData.length - 5} 条记录未显示
-                  </p>
-                )}
-              </div>
-            )}
-
-            {importData && (
-              <button
-                onClick={handleImport}
-                disabled={isImporting}
-                className="w-full py-3 rounded-lg btn-primary text-primary-900 font-medium disabled:opacity-50"
-              >
-                {isImporting ? '导入中...' : `确认导入 ${importData.length} 条数据`}
-              </button>
-            )}
+            <div className="p-4 rounded-lg bg-primary-800/30 border border-accent-500/20">
+              <h3 className="text-white font-medium mb-2">导入流程</h3>
+              <ol className="text-sm text-gray-400 space-y-2">
+                <li className="flex items-start gap-2">
+                  <span className="w-5 h-5 rounded-full bg-accent-500/20 text-accent-400 flex items-center justify-center flex-shrink-0 text-xs">1</span>
+                  上传 CSV 文件，进入字段映射页面
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-5 h-5 rounded-full bg-accent-500/20 text-accent-400 flex items-center justify-center flex-shrink-0 text-xs">2</span>
+                  配置 CSV 表头与系统字段的映射关系
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-5 h-5 rounded-full bg-accent-500/20 text-accent-400 flex items-center justify-center flex-shrink-0 text-xs">3</span>
+                  执行预检，查看校验结果和重复风险
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-5 h-5 rounded-full bg-accent-500/20 text-accent-400 flex items-center justify-center flex-shrink-0 text-xs">4</span>
+                  确认后写入数据，失败行可单独导出
+                </li>
+              </ol>
+            </div>
 
             {importResult && (
-              <div className="p-4 rounded-lg bg-primary-800/50 border border-accent-500/20">
-                <div className="flex items-center gap-4 mb-3">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5 text-green-400" />
-                    <span className="text-green-400">成功: {importResult.success}</span>
+              <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/30">
+                <div className="flex items-center gap-3">
+                  <CheckCircle className="w-6 h-6 text-green-400" />
+                  <div>
+                    <h3 className="font-medium text-white">导入完成</h3>
+                    <p className="text-sm text-gray-400">
+                      成功导入 {importResult.success} 条资料
+                      {importResult.skipped > 0 && `，跳过 ${importResult.skipped} 条`}
+                    </p>
                   </div>
-                  {importResult.failed > 0 && (
-                    <div className="flex items-center gap-2">
-                      <AlertCircle className="w-5 h-5 text-red-400" />
-                      <span className="text-red-400">失败: {importResult.failed}</span>
-                    </div>
-                  )}
                 </div>
-                {importResult.errors.length > 0 && (
-                  <div className="text-sm text-gray-400 space-y-1">
-                    {importResult.errors.slice(0, 3).map((err, i) => (
-                      <div key={i}>• {err}</div>
-                    ))}
-                    {importResult.errors.length > 3 && (
-                      <div>...还有 {importResult.errors.length - 3} 个错误</div>
-                    )}
-                  </div>
-                )}
               </div>
             )}
           </div>

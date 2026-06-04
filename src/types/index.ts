@@ -173,3 +173,49 @@ export interface WishFilters {
   priority?: WishPriority;
   keyword?: string;
 }
+
+export interface FieldMapping {
+  csvHeader: string;
+  targetField: string;
+}
+
+export type ValidationStatus = 'success' | 'warning' | 'error' | 'duplicate';
+
+export interface RowValidationResult {
+  rowIndex: number;
+  status: ValidationStatus;
+  errors: string[];
+  warnings: string[];
+  material?: Omit<Material, 'id' | 'createdAt' | 'updatedAt'>;
+  characterNames: string[];
+  staffNames: string[];
+  duplicateInfo?: {
+    similarMaterials: {
+      material: Material;
+      matchReasons: string[];
+      similarityScore: number;
+    }[];
+  };
+  originalRow: CSVRow;
+}
+
+export interface PreflightSummary {
+  totalRows: number;
+  validRows: number;
+  warningRows: number;
+  errorRows: number;
+  duplicateRows: number;
+  newCharacters: string[];
+  existingCharacters: string[];
+  newStaff: string[];
+  existingStaff: string[];
+  fieldsWithIssues: string[];
+}
+
+export interface PreflightResult {
+  fieldMappings: FieldMapping[];
+  rowResults: RowValidationResult[];
+  summary: PreflightSummary;
+  csvHeaders: string[];
+  rawData: CSVRow[];
+}
