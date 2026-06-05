@@ -13,17 +13,20 @@ import {
   X,
   Save,
   ArrowRight,
-  ShoppingCart
+  ShoppingCart,
+  Check
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { Modal } from '../components/Modal';
 import { FormInput, FormTextarea, FormSelect } from '../components/FormInput';
+import { TagSelector } from '../components/TagSelector';
 import {
   MaterialType,
   MaterialTypeLabels,
   WishPriority,
   WishPriorityLabels,
   WishItem,
+  Material,
 } from '../types';
 
 const typeOptions: { value: MaterialType; label: string }[] = [
@@ -51,17 +54,34 @@ const emptyForm = {
   notes: '',
 };
 
+const emptyConvertForm = {
+  publisher: '',
+  publishDate: '',
+  pageCount: 0,
+  copyrightNote: '',
+  characterIds: [] as string[],
+  staffIds: [] as string[],
+};
+
 export function WishList() {
   const wishItems = useStore((state) => state.wishItems);
   const addWishItem = useStore((state) => state.addWishItem);
   const updateWishItem = useStore((state) => state.updateWishItem);
   const deleteWishItem = useStore((state) => state.deleteWishItem);
   const convertWishToMaterial = useStore((state) => state.convertWishToMaterial);
+  const characters = useStore((state) => state.characters);
+  const staff = useStore((state) => state.staff);
+  const addCharacter = useStore((state) => state.addCharacter);
+  const addStaff = useStore((state) => state.addStaff);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<WishItem | null>(null);
   const [formData, setFormData] = useState(emptyForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const [isConvertModalOpen, setIsConvertModalOpen] = useState(false);
+  const [convertingItem, setConvertingItem] = useState<WishItem | null>(null);
+  const [convertFormData, setConvertFormData] = useState(emptyConvertForm);
 
   const [typeFilter, setTypeFilter] = useState<MaterialType | ''>('');
   const [workFilter, setWorkFilter] = useState<string>('');
@@ -208,9 +228,19 @@ export function WishList() {
   };
 
   const handleConvert = (id: string) => {
-    if (window.confirm('确定要将这个愿望转换为正式资料记录吗？转换后将从愿望清单中移除。')) {
-      convertWishToMaterial(id);
-    }
+    const wish = wishItems.find((w) => w.id === id);
+    if (!wish) return;
+
+    setConvertingItem(wish);
+    setConvertFormData({
+      publisher: '',
+      publishDate: '',
+      pageCount: 0,
+      copyrightNote: '',
+      characterIds: [],
+      staffIds: [],
+    });
+    setIsConvertModalOpen(true);
   };
 
   const handleCloseModal = () => {
@@ -218,6 +248,50 @@ export function WishList() {
     setEditingItem(null);
     setFormData(emptyForm);
     setErrors({});
+  };
+
+  const handleCloseConvertModal = () => {
+    setIsConvertModalOpen(false);
+    setConvertingItem(null);
+    setConvertFormData(emptyConvertForm);
+  };
+
+  const handleSubmitConvert = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!convertingItem) return;
+
+    const additionalData: Partial<Material> = {
+      publisher: convertFormData.publisher,
+      publishDate: convertFormData.publishDate,
+      pageCount: convertFormData.pageCount,
+      pageEnd: convertFormData.pageCount,
+      copyrightNote: convertFormData.copyrightNote,
+      characterIds: convertFormData.characterIds,
+      staffIds: convertFormData.staffIds,
+    };
+
+    convertWishToMaterial(convertingItem.id, additionalData);
+    handleCloseConvertModal();
+  };
+
+  const characterTags = characters.map((c) => ({
+    id: c.id,
+    name: c.name,
+    secondary: c.work,
+  }));
+
+  const staffTags = staff.map((s) => ({
+    id: s.id,
+    name: s.name,
+    secondary: s.role,
+  }));
+
+  const handleAddCharacter = (name: string) => {
+    addCharacter({ name, work: convertingItem?.work || '' });
+  };
+
+  const handleAddStaff = (name: string) => {
+    addStaff({ name, role: '其他', works: convertingItem?.work ? [convertingItem.work] : [] });
   };
 
   return (
@@ -533,6 +607,110 @@ export function WishList() {
             >
               <Save className="w-4 h-4" />
               {editingItem ? '保存修改' : '添加愿望'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        isOpen={isConvertModalOpen}
+        onClose={handleCloseConvertModal}
+        title="转换为正式资料"
+        size="lg"
+      >
+        <form onSubmit={handleSubmitConvert} className="space-y-6">
+          {convertingItem && (
+            <div className="p-4 rounded-lg bg-accent-500/10 border border-accent-500/20">
+              <h4 className="font-medium text-white mb-2">即将转换的愿望</h4>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <span className="text-gray-500">标题：</span>
+                  <span className="text-white">{convertingItem.title}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">作品：</span>
+                  <span className="text-white">{convertingItem.work}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">类型：</span>
+                  <span className="text-white">{MaterialTypeLabels[convertingItem.type]}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">购买渠道：</span>
+                  <span className="text-white">{convertingItem.purchaseChannel || '-'}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <FormInput
+              label="出版社"
+              value={convertFormData.publisher}
+              onChange={(e) => setConvertFormData({ ...convertFormData, publisher: e.target.value })}
+              placeholder="输入出版社名称"
+            />
+
+            <FormInput
+              label="出版日期"
+              type="date"
+              value={convertFormData.publishDate}
+              onChange={(e) => setConvertFormData({ ...convertFormData, publishDate: e.target.value })}
+            />
+
+            <FormInput
+              label="页数"
+              type="number"
+              value={convertFormData.pageCount || ''}
+              onChange={(e) =>
+                setConvertFormData({ ...convertFormData, pageCount: parseInt(e.target.value) || 0 })
+              }
+              placeholder="输入总页数"
+            />
+          </div>
+
+          <FormTextarea
+            label="版权备注"
+            value={convertFormData.copyrightNote}
+            onChange={(e) => setConvertFormData({ ...convertFormData, copyrightNote: e.target.value })}
+            placeholder="输入版权相关信息"
+          />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <TagSelector
+              label="关联角色"
+              availableTags={characterTags}
+              selectedIds={convertFormData.characterIds}
+              onChange={(ids) => setConvertFormData({ ...convertFormData, characterIds: ids })}
+              onAddNew={handleAddCharacter}
+              placeholder="搜索角色..."
+            />
+
+            <TagSelector
+              label="关联制作人员"
+              availableTags={staffTags}
+              selectedIds={convertFormData.staffIds}
+              onChange={(ids) => setConvertFormData({ ...convertFormData, staffIds: ids })}
+              onAddNew={handleAddStaff}
+              placeholder="搜索制作人员..."
+            />
+          </div>
+
+          <div className="flex justify-end gap-4 pt-4 border-t border-accent-500/20">
+            <button
+              type="button"
+              onClick={handleCloseConvertModal}
+              className="flex items-center gap-2 px-6 py-3 rounded-lg btn-secondary text-white font-medium"
+            >
+              <X className="w-4 h-4" />
+              取消
+            </button>
+            <button
+              type="submit"
+              className="flex items-center gap-2 px-6 py-3 rounded-lg btn-primary text-primary-900 font-medium"
+            >
+              <Check className="w-4 h-4" />
+              确认转换
             </button>
           </div>
         </form>

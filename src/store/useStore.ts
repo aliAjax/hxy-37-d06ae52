@@ -64,7 +64,7 @@ interface StoreState {
   updateWishItem: (id: string, updates: Partial<WishItem>) => void;
   deleteWishItem: (id: string) => void;
   getWishItem: (id: string) => WishItem | undefined;
-  convertWishToMaterial: (wishId: string) => void;
+  convertWishToMaterial: (wishId: string, additionalData?: Partial<Material>) => void;
   getWishStats: () => {
     total: number;
     byPriority: Record<WishPriority, number>;
@@ -429,7 +429,7 @@ export const useStore = create<StoreState>()(
         return get().wishItems.find((w) => w.id === id);
       },
 
-      convertWishToMaterial: (wishId) => {
+      convertWishToMaterial: (wishId, additionalData = {}) => {
         const wish = get().wishItems.find((w) => w.id === wishId);
         if (!wish) return;
 
@@ -451,9 +451,14 @@ export const useStore = create<StoreState>()(
           characterIds: [],
           staffIds: [],
           pageReferences: [],
+          ...additionalData,
           createdAt: now,
           updatedAt: now,
         };
+
+        if (newMaterial.pageCount && !additionalData.pageEnd) {
+          newMaterial.pageEnd = newMaterial.pageCount;
+        }
 
         set((state) => ({
           materials: [newMaterial, ...state.materials],
