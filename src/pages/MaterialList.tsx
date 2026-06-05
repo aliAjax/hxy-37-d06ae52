@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import { Plus, Search, Filter, Trash2 } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Plus, Search, Trash2, BookMarked, ScanLine, Calendar, Users, User } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { Material, MaterialType, MaterialTypeLabels } from '../types';
+import { Material, MaterialType, MaterialTypeLabels, ScanStatus, ScanStatusLabels, SearchFilters } from '../types';
 import { MaterialCard } from '../components/MaterialCard';
 import { Modal } from '../components/Modal';
 import { MaterialForm } from '../components/MaterialForm';
@@ -9,25 +9,64 @@ import { MaterialDetail } from '../components/MaterialDetail';
 
 export function MaterialList() {
   const materials = useStore((state) => state.materials);
+  const characters = useStore((state) => state.characters);
+  const staff = useStore((state) => state.staff);
+  const getWorks = useStore((state) => state.getWorks);
+  const searchMaterials = useStore((state) => state.searchMaterials);
   const addMaterial = useStore((state) => state.addMaterial);
   const updateMaterial = useStore((state) => state.updateMaterial);
   const deleteMaterial = useStore((state) => state.deleteMaterial);
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [typeFilter, setTypeFilter] = useState<string>('');
+  const [filters, setFilters] = useState<SearchFilters>({});
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
   const [viewingMaterial, setViewingMaterial] = useState<Material | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
-  const filteredMaterials = materials.filter((m) => {
-    const matchesSearch =
-      !searchQuery ||
-      m.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.work.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesType = !typeFilter || m.type === typeFilter;
-    return matchesSearch && matchesType;
-  });
+  const allWorks = getWorks();
+  const typeOptions = Object.entries(MaterialTypeLabels) as [MaterialType, string][];
+  const scanStatusOptions = Object.entries(ScanStatusLabels) as [ScanStatus, string][];
+
+  const publishYears = useMemo(() => {
+    const years = new Set<number>();
+    materials.forEach((m) => {
+      if (m.publishDate) {
+        const year = parseInt(m.publishDate.split('-')[0]);
+        if (!isNaN(year)) {
+          years.add(year);
+        }
+      }
+    });
+    return Array.from(years).sort((a, b) => a - b);
+  }, [materials]);
+
+  const minYear = publishYears.length > 0 ? publishYears[0] : undefined;
+  const maxYear = publishYears.length > 0 ? publishYears[publishYears.length - 1] : undefined;
+
+  const filteredMaterials = searchMaterials(filters);
+
+  const hasActiveFilters = Object.keys(filters).some(
+    (key) => filters[key as keyof SearchFilters] !== undefined
+  );
+
+  const updateFilter = <K extends keyof SearchFilters>(
+    key: K,
+    value: SearchFilters[K]
+  ) => {
+    setFilters((prev) => {
+      const newFilters = { ...prev };
+      if (value === undefined || value === '' || (typeof value === 'number' && isNaN(value))) {
+        delete newFilters[key];
+      } else {
+        newFilters[key] = value;
+      }
+      return newFilters;
+    });
+  };
+
+  const clearFilters = () => {
+    setFilters({});
+  };
 
   const handleDelete = (id: string) => {
     deleteMaterial(id);
@@ -67,33 +106,160 @@ export function MaterialList() {
         </button>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="flex-1 relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="搜索资料标题或作品..."
-            className="w-full pl-12 pr-4 py-3 rounded-lg bg-primary-800/50 border border-accent-500/20 text-white placeholder-gray-500 input-focus"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <Filter className="w-5 h-5 text-gray-500" />
-          <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            className="px-4 py-3 rounded-lg bg-primary-800/50 border border-accent-500/20 text-white input-focus"
-          >
-            <option value="">全部类型</option>
-            {(Object.entries(MaterialTypeLabels) as [MaterialType, string][]).map(
-              ([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              )
-            )}
-          </select>
+      <div className="glass rounded-2xl p-5">
+        <div className="flex flex-col gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+            <input
+              type="text"
+              value={filters.keyword || ''}
+              onChange={(e) => updateFilter('keyword', e.target.value || undefined)}
+              placeholder="搜索标题、作品、出版社、描述..."
+              className="w-full pl-12 pr-4 py-3 rounded-lg bg-primary-800/50 border border-accent-500/20 text-white placeholder-gray-500 input-focus"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-1.5 text-xs font-medium text-gray-400">
+                <BookMarked className="w-3.5 h-3.5" />
+                作品
+              </label>
+              <select
+                value={filters.work || ''}
+                onChange={(e) => updateFilter('work', e.target.value || undefined)}
+                className="w-full px-3 py-2 rounded-lg bg-primary-800/50 border border-accent-500/20 text-white input-focus text-sm"
+              >
+                <option value="">全部作品</option>
+                {allWorks.map((work) => (
+                  <option key={work} value={work}>
+                    {work}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-1.5 text-xs font-medium text-gray-400">
+                <ScanLine className="w-3.5 h-3.5" />
+                扫描状态
+              </label>
+              <select
+                value={filters.scanStatus || ''}
+                onChange={(e) => updateFilter('scanStatus', (e.target.value as ScanStatus) || undefined)}
+                className="w-full px-3 py-2 rounded-lg bg-primary-800/50 border border-accent-500/20 text-white input-focus text-sm"
+              >
+                <option value="">全部状态</option>
+                {scanStatusOptions.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-1.5 text-xs font-medium text-gray-400">
+                资料类型
+              </label>
+              <select
+                value={filters.type || ''}
+                onChange={(e) => updateFilter('type', (e.target.value as MaterialType) || undefined)}
+                className="w-full px-3 py-2 rounded-lg bg-primary-800/50 border border-accent-500/20 text-white input-focus text-sm"
+              >
+                <option value="">全部类型</option>
+                {typeOptions.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-1.5 text-xs font-medium text-gray-400">
+                <Calendar className="w-3.5 h-3.5" />
+                起始年份
+              </label>
+              <input
+                type="number"
+                value={filters.yearFrom || ''}
+                onChange={(e) => updateFilter('yearFrom', e.target.value ? parseInt(e.target.value) : undefined)}
+                placeholder={minYear ? `最早 ${minYear}` : '年份'}
+                min={minYear}
+                max={maxYear}
+                className="w-full px-3 py-2 rounded-lg bg-primary-800/50 border border-accent-500/20 text-white placeholder-gray-500 input-focus text-sm"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-1.5 text-xs font-medium text-gray-400">
+                <Calendar className="w-3.5 h-3.5" />
+                结束年份
+              </label>
+              <input
+                type="number"
+                value={filters.yearTo || ''}
+                onChange={(e) => updateFilter('yearTo', e.target.value ? parseInt(e.target.value) : undefined)}
+                placeholder={maxYear ? `最晚 ${maxYear}` : '年份'}
+                min={minYear}
+                max={maxYear}
+                className="w-full px-3 py-2 rounded-lg bg-primary-800/50 border border-accent-500/20 text-white placeholder-gray-500 input-focus text-sm"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-1.5 text-xs font-medium text-gray-400">
+                <Users className="w-3.5 h-3.5" />
+                关联角色
+              </label>
+              <select
+                value={filters.characterId || ''}
+                onChange={(e) => updateFilter('characterId', e.target.value || undefined)}
+                className="w-full px-3 py-2 rounded-lg bg-primary-800/50 border border-accent-500/20 text-white input-focus text-sm"
+              >
+                <option value="">全部角色</option>
+                {characters.map((char) => (
+                  <option key={char.id} value={char.id}>
+                    {char.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-1.5 text-xs font-medium text-gray-400">
+                <User className="w-3.5 h-3.5" />
+                关联制作人员
+              </label>
+              <select
+                value={filters.staffId || ''}
+                onChange={(e) => updateFilter('staffId', e.target.value || undefined)}
+                className="w-full px-3 py-2 rounded-lg bg-primary-800/50 border border-accent-500/20 text-white input-focus text-sm"
+              >
+                <option value="">全部人员</option>
+                {staff.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {hasActiveFilters && (
+            <div className="flex items-center justify-between pt-2 border-t border-accent-500/10">
+              <span className="text-sm text-gray-400">
+                已应用筛选条件，显示 {filteredMaterials.length} / {materials.length} 条资料
+              </span>
+              <button
+                onClick={clearFilters}
+                className="text-sm text-accent-400 hover:text-accent-300 transition-colors"
+              >
+                清除所有筛选
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -113,7 +279,7 @@ export function MaterialList() {
           ))}
         </div>
       ) : (
-        <div className="text-center py-16">
+        <div className="text-center py-16 glass rounded-xl">
           <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary-800/50 flex items-center justify-center">
             <Search className="w-8 h-8 text-gray-500" />
           </div>
@@ -123,8 +289,18 @@ export function MaterialList() {
           <p className="text-gray-400">
             {materials.length === 0
               ? '点击上方按钮添加您的第一份资料'
-              : '尝试调整搜索条件或筛选类型'}
+              : hasActiveFilters
+              ? '尝试调整或清除筛选条件后查看'
+              : '尝试调整搜索条件'}
           </p>
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              className="mt-4 px-4 py-2 rounded-lg bg-accent-500/20 text-accent-400 hover:bg-accent-500/30 border border-accent-500/30 transition-colors text-sm"
+            >
+              清除筛选条件
+            </button>
+          )}
         </div>
       )}
 

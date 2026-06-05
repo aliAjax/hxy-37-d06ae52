@@ -6,7 +6,11 @@ export const searchMaterials = (
   staffList: Staff[] = []
 ): Material[] => {
   return materials.filter((material) => {
-    if (filters.work && !material.work.includes(filters.work)) {
+    if (filters.work && material.work !== filters.work) {
+      return false;
+    }
+
+    if (filters.scanStatus && material.scanStatus !== filters.scanStatus) {
       return false;
     }
 

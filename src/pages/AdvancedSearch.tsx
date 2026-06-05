@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
-import { Search, FilterX, BookMarked, Users, User, Calendar, FileText, Palette } from 'lucide-react';
+import { Search, FilterX, BookMarked, Users, User, Calendar, FileText, Palette, ScanLine } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { SearchFilters, Material, MaterialType, MaterialTypeLabels } from '../types';
+import { SearchFilters, Material, MaterialType, MaterialTypeLabels, ScanStatus, ScanStatusLabels } from '../types';
 import { MaterialCard } from '../components/MaterialCard';
 import { Modal } from '../components/Modal';
 import { MaterialDetail } from '../components/MaterialDetail';
@@ -19,6 +19,7 @@ export function AdvancedSearch() {
 
   const works = getWorks();
   const typeOptions = Object.entries(MaterialTypeLabels) as [MaterialType, string][];
+  const scanStatusOptions = Object.entries(ScanStatusLabels) as [ScanStatus, string][];
 
   const staffRoles = useMemo(() => {
     const roles = new Set<string>();
@@ -100,6 +101,27 @@ export function AdvancedSearch() {
             >
               <option value="">全部类型</option>
               {typeOptions.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
+              <ScanLine className="w-4 h-4" />
+              扫描状态
+            </label>
+            <select
+              value={filters.scanStatus || ''}
+              onChange={(e) =>
+                updateFilter('scanStatus', (e.target.value as ScanStatus) || undefined)
+              }
+              className="w-full px-4 py-3 rounded-lg bg-primary-800/50 border border-accent-500/20 text-white input-focus"
+            >
+              <option value="">全部状态</option>
+              {scanStatusOptions.map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>

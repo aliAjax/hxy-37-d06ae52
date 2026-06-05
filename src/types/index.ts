@@ -82,6 +82,7 @@ export interface SearchFilters {
   yearFrom?: number;
   yearTo?: number;
   keyword?: string;
+  scanStatus?: ScanStatus;
 }
 
 export interface CSVRow {
