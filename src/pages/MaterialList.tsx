@@ -11,7 +11,6 @@ export function MaterialList() {
   const materials = useStore((state) => state.materials);
   const characters = useStore((state) => state.characters);
   const staff = useStore((state) => state.staff);
-  const getWorks = useStore((state) => state.getWorks);
   const searchMaterials = useStore((state) => state.searchMaterials);
   const addMaterial = useStore((state) => state.addMaterial);
   const updateMaterial = useStore((state) => state.updateMaterial);
@@ -23,7 +22,6 @@ export function MaterialList() {
   const [viewingMaterial, setViewingMaterial] = useState<Material | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
-  const allWorks = getWorks();
   const typeOptions = Object.entries(MaterialTypeLabels) as [MaterialType, string][];
   const scanStatusOptions = Object.entries(ScanStatusLabels) as [ScanStatus, string][];
 

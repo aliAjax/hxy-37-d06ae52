@@ -9,7 +9,6 @@ import { MaterialDetail } from '../components/MaterialDetail';
 export function AdvancedSearch() {
   const characters = useStore((state) => state.characters);
   const staff = useStore((state) => state.staff);
-  const getWorks = useStore((state) => state.getWorks);
   const searchMaterials = useStore((state) => state.searchMaterials);
 
   const [filters, setFilters] = useState<SearchFilters>({});
@@ -17,7 +16,6 @@ export function AdvancedSearch() {
   const [hasSearched, setHasSearched] = useState(false);
   const [viewingMaterial, setViewingMaterial] = useState<Material | null>(null);
 
-  const allWorks = getWorks();
   const allTypeOptions = Object.entries(MaterialTypeLabels) as [MaterialType, string][];
   const allScanStatusOptions = Object.entries(ScanStatusLabels) as [ScanStatus, string][];
 
