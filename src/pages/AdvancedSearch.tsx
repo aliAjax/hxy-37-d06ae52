@@ -17,19 +17,82 @@ export function AdvancedSearch() {
   const [hasSearched, setHasSearched] = useState(false);
   const [viewingMaterial, setViewingMaterial] = useState<Material | null>(null);
 
-  const works = getWorks();
-  const typeOptions = Object.entries(MaterialTypeLabels) as [MaterialType, string][];
-  const scanStatusOptions = Object.entries(ScanStatusLabels) as [ScanStatus, string][];
+  const allWorks = getWorks();
+  const allTypeOptions = Object.entries(MaterialTypeLabels) as [MaterialType, string][];
+  const allScanStatusOptions = Object.entries(ScanStatusLabels) as [ScanStatus, string][];
 
-  const staffRoles = useMemo(() => {
+  const previewResults = useMemo(() => {
+    return searchMaterials(filters);
+  }, [filters, searchMaterials]);
+
+  const availableWorks = useMemo(() => {
+    const works = new Set<string>();
+    previewResults.forEach((m) => {
+      if (m.work) works.add(m.work);
+    });
+    if (filters.work) works.add(filters.work);
+    return Array.from(works).sort();
+  }, [previewResults, filters.work]);
+
+  const availableTypes = useMemo(() => {
+    const types = new Set<MaterialType>();
+    previewResults.forEach((m) => types.add(m.type));
+    if (filters.type) types.add(filters.type);
+    return allTypeOptions.filter(([value]) => types.has(value));
+  }, [previewResults, filters.type, allTypeOptions]);
+
+  const availableScanStatuses = useMemo(() => {
+    const statuses = new Set<ScanStatus>();
+    previewResults.forEach((m) => statuses.add(m.scanStatus));
+    if (filters.scanStatus) statuses.add(filters.scanStatus);
+    return allScanStatusOptions.filter(([value]) => statuses.has(value));
+  }, [previewResults, filters.scanStatus, allScanStatusOptions]);
+
+  const availableCharacters = useMemo(() => {
+    const charIds = new Set<string>();
+    previewResults.forEach((m) => {
+      m.characterIds.forEach((id) => charIds.add(id));
+    });
+    if (filters.characterId) charIds.add(filters.characterId);
+    return characters.filter((c) => charIds.has(c.id));
+  }, [previewResults, filters.characterId, characters]);
+
+  const availableStaff = useMemo(() => {
+    const staffIds = new Set<string>();
+    previewResults.forEach((m) => {
+      m.staffIds.forEach((id) => staffIds.add(id));
+    });
+    if (filters.staffId) staffIds.add(filters.staffId);
+    return staff.filter((s) => staffIds.has(s.id));
+  }, [previewResults, filters.staffId, staff]);
+
+  const availableStaffRoles = useMemo(() => {
     const roles = new Set<string>();
-    staff.forEach((s) => {
-      if (s.role) {
-        roles.add(s.role);
+    previewResults.forEach((m) => {
+      m.staffIds.forEach((staffId) => {
+        const s = staff.find((item) => item.id === staffId);
+        if (s?.role) roles.add(s.role);
+      });
+    });
+    if (filters.staffRole) roles.add(filters.staffRole);
+    return Array.from(roles).sort();
+  }, [previewResults, filters.staffRole, staff]);
+
+  const publishYears = useMemo(() => {
+    const years = new Set<number>();
+    previewResults.forEach((m) => {
+      if (m.publishDate) {
+        const year = parseInt(m.publishDate.split('-')[0]);
+        if (!isNaN(year)) years.add(year);
       }
     });
-    return Array.from(roles).sort();
-  }, [staff]);
+    if (filters.yearFrom) years.add(filters.yearFrom);
+    if (filters.yearTo) years.add(filters.yearTo);
+    return Array.from(years).sort((a, b) => a - b);
+  }, [previewResults, filters.yearFrom, filters.yearTo]);
+
+  const minYear = publishYears.length > 0 ? publishYears[0] : undefined;
+  const maxYear = publishYears.length > 0 ? publishYears[publishYears.length - 1] : undefined;
 
   const handleSearch = () => {
     const searchResults = searchMaterials(filters);
@@ -79,7 +142,7 @@ export function AdvancedSearch() {
               className="w-full px-4 py-3 rounded-lg bg-primary-800/50 border border-accent-500/20 text-white input-focus"
             >
               <option value="">全部作品</option>
-              {works.map((work) => (
+              {availableWorks.map((work) => (
                 <option key={work} value={work}>
                   {work}
                 </option>
@@ -100,7 +163,7 @@ export function AdvancedSearch() {
               className="w-full px-4 py-3 rounded-lg bg-primary-800/50 border border-accent-500/20 text-white input-focus"
             >
               <option value="">全部类型</option>
-              {typeOptions.map(([value, label]) => (
+              {availableTypes.map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>
@@ -121,7 +184,7 @@ export function AdvancedSearch() {
               className="w-full px-4 py-3 rounded-lg bg-primary-800/50 border border-accent-500/20 text-white input-focus"
             >
               <option value="">全部状态</option>
-              {scanStatusOptions.map(([value, label]) => (
+              {availableScanStatuses.map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>
@@ -142,7 +205,7 @@ export function AdvancedSearch() {
               className="w-full px-4 py-3 rounded-lg bg-primary-800/50 border border-accent-500/20 text-white input-focus"
             >
               <option value="">全部角色</option>
-              {characters.map((char) => (
+              {availableCharacters.map((char) => (
                 <option key={char.id} value={char.id}>
                   {char.name} ({char.work})
                 </option>
@@ -163,7 +226,7 @@ export function AdvancedSearch() {
               className="w-full px-4 py-3 rounded-lg bg-primary-800/50 border border-accent-500/20 text-white input-focus"
             >
               <option value="">全部人员</option>
-              {staff.map((s) => (
+              {availableStaff.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name} ({s.role})
                 </option>
@@ -184,7 +247,7 @@ export function AdvancedSearch() {
               className="w-full px-4 py-3 rounded-lg bg-primary-800/50 border border-accent-500/20 text-white input-focus"
             >
               <option value="">全部职务</option>
-              {staffRoles.map((role) => (
+              {availableStaffRoles.map((role) => (
                 <option key={role} value={role}>
                   {role}
                 </option>
@@ -203,7 +266,9 @@ export function AdvancedSearch() {
               onChange={(e) =>
                 updateFilter('yearFrom', e.target.value ? parseInt(e.target.value) : undefined)
               }
-              placeholder="如：2000"
+              placeholder={minYear ? `最早 ${minYear}` : '年份'}
+              min={minYear}
+              max={maxYear}
               className="w-full px-4 py-3 rounded-lg bg-primary-800/50 border border-accent-500/20 text-white placeholder-gray-500 input-focus"
             />
           </div>
@@ -219,7 +284,9 @@ export function AdvancedSearch() {
               onChange={(e) =>
                 updateFilter('yearTo', e.target.value ? parseInt(e.target.value) : undefined)
               }
-              placeholder="如：2024"
+              placeholder={maxYear ? `最晚 ${maxYear}` : '年份'}
+              min={minYear}
+              max={maxYear}
               className="w-full px-4 py-3 rounded-lg bg-primary-800/50 border border-accent-500/20 text-white placeholder-gray-500 input-focus"
             />
           </div>

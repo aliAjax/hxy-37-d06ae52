@@ -27,23 +27,64 @@ export function MaterialList() {
   const typeOptions = Object.entries(MaterialTypeLabels) as [MaterialType, string][];
   const scanStatusOptions = Object.entries(ScanStatusLabels) as [ScanStatus, string][];
 
-  const publishYears = useMemo(() => {
+  const filteredMaterials = searchMaterials(filters);
+
+  const availableWorks = useMemo(() => {
+    const works = new Set<string>();
+    filteredMaterials.forEach((m) => {
+      if (m.work) works.add(m.work);
+    });
+    if (filters.work) works.add(filters.work);
+    return Array.from(works).sort();
+  }, [filteredMaterials, filters.work]);
+
+  const availableTypes = useMemo(() => {
+    const types = new Set<MaterialType>();
+    filteredMaterials.forEach((m) => types.add(m.type));
+    if (filters.type) types.add(filters.type);
+    return typeOptions.filter(([value]) => types.has(value));
+  }, [filteredMaterials, filters.type, typeOptions]);
+
+  const availableScanStatuses = useMemo(() => {
+    const statuses = new Set<ScanStatus>();
+    filteredMaterials.forEach((m) => statuses.add(m.scanStatus));
+    if (filters.scanStatus) statuses.add(filters.scanStatus);
+    return scanStatusOptions.filter(([value]) => statuses.has(value));
+  }, [filteredMaterials, filters.scanStatus, scanStatusOptions]);
+
+  const availablePublishYears = useMemo(() => {
     const years = new Set<number>();
-    materials.forEach((m) => {
+    filteredMaterials.forEach((m) => {
       if (m.publishDate) {
         const year = parseInt(m.publishDate.split('-')[0]);
-        if (!isNaN(year)) {
-          years.add(year);
-        }
+        if (!isNaN(year)) years.add(year);
       }
     });
+    if (filters.yearFrom) years.add(filters.yearFrom);
+    if (filters.yearTo) years.add(filters.yearTo);
     return Array.from(years).sort((a, b) => a - b);
-  }, [materials]);
+  }, [filteredMaterials, filters.yearFrom, filters.yearTo]);
 
-  const minYear = publishYears.length > 0 ? publishYears[0] : undefined;
-  const maxYear = publishYears.length > 0 ? publishYears[publishYears.length - 1] : undefined;
+  const minAvailableYear = availablePublishYears.length > 0 ? availablePublishYears[0] : undefined;
+  const maxAvailableYear = availablePublishYears.length > 0 ? availablePublishYears[availablePublishYears.length - 1] : undefined;
 
-  const filteredMaterials = searchMaterials(filters);
+  const availableCharacters = useMemo(() => {
+    const charIds = new Set<string>();
+    filteredMaterials.forEach((m) => {
+      m.characterIds.forEach((id) => charIds.add(id));
+    });
+    if (filters.characterId) charIds.add(filters.characterId);
+    return characters.filter((c) => charIds.has(c.id));
+  }, [filteredMaterials, filters.characterId, characters]);
+
+  const availableStaff = useMemo(() => {
+    const staffIds = new Set<string>();
+    filteredMaterials.forEach((m) => {
+      m.staffIds.forEach((id) => staffIds.add(id));
+    });
+    if (filters.staffId) staffIds.add(filters.staffId);
+    return staff.filter((s) => staffIds.has(s.id));
+  }, [filteredMaterials, filters.staffId, staff]);
 
   const hasActiveFilters = Object.keys(filters).some(
     (key) => filters[key as keyof SearchFilters] !== undefined
@@ -131,7 +172,7 @@ export function MaterialList() {
                 className="w-full px-3 py-2 rounded-lg bg-primary-800/50 border border-accent-500/20 text-white input-focus text-sm"
               >
                 <option value="">全部作品</option>
-                {allWorks.map((work) => (
+                {availableWorks.map((work) => (
                   <option key={work} value={work}>
                     {work}
                   </option>
@@ -150,7 +191,7 @@ export function MaterialList() {
                 className="w-full px-3 py-2 rounded-lg bg-primary-800/50 border border-accent-500/20 text-white input-focus text-sm"
               >
                 <option value="">全部状态</option>
-                {scanStatusOptions.map(([value, label]) => (
+                {availableScanStatuses.map(([value, label]) => (
                   <option key={value} value={value}>
                     {label}
                   </option>
@@ -168,7 +209,7 @@ export function MaterialList() {
                 className="w-full px-3 py-2 rounded-lg bg-primary-800/50 border border-accent-500/20 text-white input-focus text-sm"
               >
                 <option value="">全部类型</option>
-                {typeOptions.map(([value, label]) => (
+                {availableTypes.map(([value, label]) => (
                   <option key={value} value={value}>
                     {label}
                   </option>
@@ -185,9 +226,9 @@ export function MaterialList() {
                 type="number"
                 value={filters.yearFrom || ''}
                 onChange={(e) => updateFilter('yearFrom', e.target.value ? parseInt(e.target.value) : undefined)}
-                placeholder={minYear ? `最早 ${minYear}` : '年份'}
-                min={minYear}
-                max={maxYear}
+                placeholder={minAvailableYear ? `最早 ${minAvailableYear}` : '年份'}
+                min={minAvailableYear}
+                max={maxAvailableYear}
                 className="w-full px-3 py-2 rounded-lg bg-primary-800/50 border border-accent-500/20 text-white placeholder-gray-500 input-focus text-sm"
               />
             </div>
@@ -201,9 +242,9 @@ export function MaterialList() {
                 type="number"
                 value={filters.yearTo || ''}
                 onChange={(e) => updateFilter('yearTo', e.target.value ? parseInt(e.target.value) : undefined)}
-                placeholder={maxYear ? `最晚 ${maxYear}` : '年份'}
-                min={minYear}
-                max={maxYear}
+                placeholder={maxAvailableYear ? `最晚 ${maxAvailableYear}` : '年份'}
+                min={minAvailableYear}
+                max={maxAvailableYear}
                 className="w-full px-3 py-2 rounded-lg bg-primary-800/50 border border-accent-500/20 text-white placeholder-gray-500 input-focus text-sm"
               />
             </div>
@@ -219,7 +260,7 @@ export function MaterialList() {
                 className="w-full px-3 py-2 rounded-lg bg-primary-800/50 border border-accent-500/20 text-white input-focus text-sm"
               >
                 <option value="">全部角色</option>
-                {characters.map((char) => (
+                {availableCharacters.map((char) => (
                   <option key={char.id} value={char.id}>
                     {char.name}
                   </option>
@@ -238,7 +279,7 @@ export function MaterialList() {
                 className="w-full px-3 py-2 rounded-lg bg-primary-800/50 border border-accent-500/20 text-white input-focus text-sm"
               >
                 <option value="">全部人员</option>
-                {staff.map((s) => (
+                {availableStaff.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
                   </option>
