@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Database,
   Plus,
@@ -16,6 +16,11 @@ import {
   ArrowRight,
   Save,
   BookMarked,
+  Download,
+  Upload,
+  Edit3,
+  Info,
+  Archive,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { Modal } from '../components/Modal';
@@ -32,6 +37,7 @@ interface SnapshotData {
 interface Snapshot {
   id: string;
   label: string;
+  description?: string;
   createdAt: string;
   data: SnapshotData;
 }
@@ -69,6 +75,54 @@ function formatDateTime(iso: string) {
 
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
+}
+
+function downloadJSON(data: unknown, filename: string) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+async function readJSONFile(file: File): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const result = JSON.parse(e.target?.result as string);
+        resolve(result);
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsText(file);
+  });
+}
+
+function isValidSnapshot(data: unknown): data is Snapshot {
+  if (typeof data !== 'object' || data === null) return false;
+  const d = data as Record<string, unknown>;
+  return (
+    typeof d.id === 'string' &&
+    typeof d.label === 'string' &&
+    typeof d.createdAt === 'string' &&
+    typeof d.data === 'object' &&
+    d.data !== null &&
+    Array.isArray((d.data as Record<string, unknown>).materials) &&
+    Array.isArray((d.data as Record<string, unknown>).characters) &&
+    Array.isArray((d.data as Record<string, unknown>).staff)
+  );
+}
+
+function isValidSnapshotArray(data: unknown): data is Snapshot[] {
+  if (!Array.isArray(data)) return false;
+  return data.every(isValidSnapshot);
 }
 
 interface DiffSummary {
@@ -188,6 +242,7 @@ export function BackupCenter() {
 
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [snapshotLabel, setSnapshotLabel] = useState('');
+  const [snapshotDescription, setSnapshotDescription] = useState('');
   const [showCreateInput, setShowCreateInput] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -195,9 +250,22 @@ export function BackupCenter() {
     snapshot: Snapshot;
     diff: DiffSummary;
   } | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameLabel, setRenameLabel] = useState('');
+  const [renameDescription, setRenameDescription] = useState('');
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importPreview, setImportPreview] = useState<Snapshot[] | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setSnapshots(loadSnapshots());
+  }, []);
+
+  const showSuccess = useCallback((message: string) => {
+    setSuccessMessage(message);
+    setTimeout(() => setSuccessMessage(null), 3000);
   }, []);
 
   const handleCreateSnapshot = useCallback(() => {
@@ -205,6 +273,7 @@ export function BackupCenter() {
     const newSnapshot: Snapshot = {
       id: generateId(),
       label,
+      description: snapshotDescription.trim() || undefined,
       createdAt: new Date().toISOString(),
       data: {
         materials: JSON.parse(JSON.stringify(materials)),
@@ -219,8 +288,10 @@ export function BackupCenter() {
     saveSnapshots(updated);
     setSnapshots(updated);
     setSnapshotLabel('');
+    setSnapshotDescription('');
     setShowCreateInput(false);
-  }, [snapshotLabel, snapshots, materials, characters, staff, scanTasks, wishItems, workInfos]);
+    showSuccess('快照创建成功');
+  }, [snapshotLabel, snapshotDescription, snapshots, materials, characters, staff, scanTasks, wishItems, workInfos, showSuccess]);
 
   const handleDeleteSnapshot = useCallback((id: string) => {
     const updated = snapshots.filter((s) => s.id !== id);
@@ -228,7 +299,29 @@ export function BackupCenter() {
     setSnapshots(updated);
     setConfirmDeleteId(null);
     if (expandedId === id) setExpandedId(null);
-  }, [snapshots, expandedId]);
+    showSuccess('快照已删除');
+  }, [snapshots, expandedId, showSuccess]);
+
+  const handleStartRename = useCallback((snapshot: Snapshot) => {
+    setRenamingId(snapshot.id);
+    setRenameLabel(snapshot.label);
+    setRenameDescription(snapshot.description || '');
+  }, []);
+
+  const handleSaveRename = useCallback(() => {
+    if (!renamingId) return;
+    const updated = snapshots.map((s) =>
+      s.id === renamingId
+        ? { ...s, label: renameLabel.trim() || s.label, description: renameDescription.trim() || undefined }
+        : s
+    );
+    saveSnapshots(updated);
+    setSnapshots(updated);
+    setRenamingId(null);
+    setRenameLabel('');
+    setRenameDescription('');
+    showSuccess('快照已重命名');
+  }, [renamingId, renameLabel, renameDescription, snapshots, showSuccess]);
 
   const handlePrepareRestore = useCallback((snapshot: Snapshot) => {
     const current: SnapshotData = {
@@ -255,7 +348,89 @@ export function BackupCenter() {
       workInfos: data.workInfos || {},
     });
     setDiffModal(null);
-  }, [diffModal]);
+    showSuccess('数据已恢复到快照版本');
+  }, [diffModal, showSuccess]);
+
+  const handleExportSnapshot = useCallback((snapshot: Snapshot) => {
+    const filename = `快照_${snapshot.label}_${snapshot.createdAt.split('T')[0]}.json`;
+    const exportData = {
+      type: 'animation-archive-snapshot',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      snapshot,
+    };
+    downloadJSON(exportData, filename);
+    showSuccess('快照已导出');
+  }, [showSuccess]);
+
+  const handleExportAll = useCallback(() => {
+    const filename = `全部快照_${new Date().toISOString().split('T')[0]}.json`;
+    const exportData = {
+      type: 'animation-archive-snapshots',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      snapshots,
+    };
+    downloadJSON(exportData, filename);
+    showSuccess('全部快照已导出');
+  }, [snapshots, showSuccess]);
+
+  const handleImportFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const data = await readJSONFile(file);
+      setImportError(null);
+
+      const obj = data as Record<string, unknown>;
+      let importedSnapshots: Snapshot[] = [];
+
+      if (obj.type === 'animation-archive-snapshots' && isValidSnapshotArray(obj.snapshots)) {
+        importedSnapshots = obj.snapshots as Snapshot[];
+      } else if (obj.type === 'animation-archive-snapshot' && isValidSnapshot(obj.snapshot)) {
+        importedSnapshots = [obj.snapshot as Snapshot];
+      } else if (isValidSnapshotArray(data)) {
+        importedSnapshots = data as Snapshot[];
+      } else if (isValidSnapshot(data)) {
+        importedSnapshots = [data as Snapshot];
+      } else {
+        setImportError('文件格式不正确，无法识别为有效的快照文件');
+        setImportPreview(null);
+        return;
+      }
+
+      importedSnapshots = importedSnapshots.map((s) => ({
+        ...s,
+        id: generateId(),
+        label: `${s.label} (已导入)`,
+      }));
+
+      setImportPreview(importedSnapshots);
+    } catch {
+      setImportError('文件读取失败，请确保是有效的 JSON 文件');
+      setImportPreview(null);
+    }
+  }, []);
+
+  const handleConfirmImport = useCallback(() => {
+    if (!importPreview) return;
+    const updated = [...importPreview, ...snapshots];
+    saveSnapshots(updated);
+    setSnapshots(updated);
+    setShowImportModal(false);
+    setImportPreview(null);
+    setImportError(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    showSuccess(`成功导入 ${importPreview.length} 个快照`);
+  }, [importPreview, snapshots, showSuccess]);
+
+  const handleCloseImportModal = useCallback(() => {
+    setShowImportModal(false);
+    setImportPreview(null);
+    setImportError(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }, []);
 
   const diffHasChanges = diffModal
     ? diffModal.diff.materialsAdded > 0 ||
@@ -276,6 +451,15 @@ export function BackupCenter() {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {successMessage && (
+        <div className="fixed top-4 right-4 z-50 animate-fade-in">
+          <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-green-500/20 border border-green-500/30 text-green-300 shadow-lg backdrop-blur-sm">
+            <CheckCircle className="w-5 h-5" />
+            <span className="text-sm font-medium">{successMessage}</span>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-serif text-2xl font-bold gradient-text mb-2">
@@ -285,13 +469,31 @@ export function BackupCenter() {
             创建收藏数据快照，随时恢复到历史版本，所有数据均保存在浏览器本地
           </p>
         </div>
-        <button
-          onClick={() => setShowCreateInput(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-accent-500/20 text-accent-400 hover:bg-accent-500/30 border border-accent-500/30 transition-colors"
-        >
-          <Plus className="w-5 h-5" />
-          创建快照
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary-700/50 text-gray-300 hover:text-white hover:bg-primary-700 border border-accent-500/20 transition-colors text-sm"
+          >
+            <Upload className="w-4 h-4" />
+            导入快照
+          </button>
+          {snapshots.length > 0 && (
+            <button
+              onClick={handleExportAll}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary-700/50 text-gray-300 hover:text-white hover:bg-primary-700 border border-accent-500/20 transition-colors text-sm"
+            >
+              <Download className="w-4 h-4" />
+              导出全部
+            </button>
+          )}
+          <button
+            onClick={() => setShowCreateInput(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-accent-500/20 text-accent-400 hover:bg-accent-500/30 border border-accent-500/30 transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+            创建快照
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -342,7 +544,7 @@ export function BackupCenter() {
       </div>
 
       {showCreateInput && (
-        <div className="glass rounded-xl p-4 border border-accent-500/30 animate-fade-in">
+        <div className="glass rounded-xl p-4 border border-accent-500/30 animate-fade-in space-y-3">
           <div className="flex items-center gap-3">
             <Save className="w-5 h-5 text-accent-400 flex-shrink-0" />
             <input
@@ -356,17 +558,29 @@ export function BackupCenter() {
               }}
               autoFocus
             />
+          </div>
+          <div className="flex items-start gap-3">
+            <div className="w-5" />
+            <textarea
+              value={snapshotDescription}
+              onChange={(e) => setSnapshotDescription(e.target.value)}
+              placeholder="添加快照描述（可选）"
+              rows={2}
+              className="flex-1 px-3 py-2 rounded-lg bg-primary-800/50 border border-accent-500/20 text-white placeholder-gray-500 focus:outline-none focus:border-accent-500/50 text-sm resize-none"
+            />
+          </div>
+          <div className="flex items-center justify-end gap-2">
+            <button
+              onClick={() => { setShowCreateInput(false); setSnapshotLabel(''); setSnapshotDescription(''); }}
+              className="px-4 py-2 rounded-lg bg-primary-700/50 text-gray-400 hover:text-white hover:bg-primary-700 transition-colors text-sm"
+            >
+              取消
+            </button>
             <button
               onClick={handleCreateSnapshot}
               className="px-4 py-2 rounded-lg bg-accent-500/20 text-accent-400 hover:bg-accent-500/30 border border-accent-500/30 transition-colors text-sm font-medium"
             >
               确认创建
-            </button>
-            <button
-              onClick={() => { setShowCreateInput(false); setSnapshotLabel(''); }}
-              className="px-4 py-2 rounded-lg bg-primary-700/50 text-gray-400 hover:text-white hover:bg-primary-700 transition-colors text-sm"
-            >
-              取消
             </button>
           </div>
         </div>
@@ -387,6 +601,7 @@ export function BackupCenter() {
           {snapshots.map((snapshot) => {
             const isExpanded = expandedId === snapshot.id;
             const isConfirmingDelete = confirmDeleteId === snapshot.id;
+            const isRenaming = renamingId === snapshot.id;
 
             return (
               <div
@@ -408,6 +623,11 @@ export function BackupCenter() {
                           {snapshot.data.materials.length} 资料 / {snapshot.data.characters.length} 角色 / {snapshot.data.staff.length} 制作人员
                         </span>
                       </h3>
+                      {snapshot.description && (
+                        <p className="text-sm text-gray-400 mt-1 line-clamp-1">
+                          {snapshot.description}
+                        </p>
+                      )}
                       <div className="flex items-center gap-2 mt-1">
                         <Clock className="w-3.5 h-3.5 text-gray-500" />
                         <span className="text-sm text-gray-400">{formatDateTime(snapshot.createdAt)}</span>
@@ -425,70 +645,126 @@ export function BackupCenter() {
 
                 {isExpanded && (
                   <div className="px-4 pb-4 border-t border-accent-500/10">
-                    <div className="pt-4 space-y-4">
-                      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-                        <div className="px-3 py-2 rounded-lg bg-primary-800/50 border border-accent-500/10">
-                          <p className="text-xs text-gray-500">资料</p>
-                          <p className="text-lg font-bold text-white">{snapshot.data.materials.length}</p>
+                    {isRenaming ? (
+                      <div className="pt-4 space-y-3">
+                        <div className="flex items-center gap-3">
+                          <Edit3 className="w-5 h-5 text-accent-400 flex-shrink-0" />
+                          <input
+                            type="text"
+                            value={renameLabel}
+                            onChange={(e) => setRenameLabel(e.target.value)}
+                            placeholder="快照名称"
+                            className="flex-1 px-3 py-2 rounded-lg bg-primary-800/50 border border-accent-500/20 text-white placeholder-gray-500 focus:outline-none focus:border-accent-500/50 text-sm"
+                            autoFocus
+                          />
                         </div>
-                        <div className="px-3 py-2 rounded-lg bg-primary-800/50 border border-accent-500/10">
-                          <p className="text-xs text-gray-500">角色</p>
-                          <p className="text-lg font-bold text-white">{snapshot.data.characters.length}</p>
+                        <div className="flex items-start gap-3">
+                          <div className="w-5" />
+                          <textarea
+                            value={renameDescription}
+                            onChange={(e) => setRenameDescription(e.target.value)}
+                            placeholder="快照描述（可选）"
+                            rows={2}
+                            className="flex-1 px-3 py-2 rounded-lg bg-primary-800/50 border border-accent-500/20 text-white placeholder-gray-500 focus:outline-none focus:border-accent-500/50 text-sm resize-none"
+                          />
                         </div>
-                        <div className="px-3 py-2 rounded-lg bg-primary-800/50 border border-accent-500/10">
-                          <p className="text-xs text-gray-500">制作人员</p>
-                          <p className="text-lg font-bold text-white">{snapshot.data.staff.length}</p>
-                        </div>
-                        <div className="px-3 py-2 rounded-lg bg-primary-800/50 border border-accent-500/10">
-                          <p className="text-xs text-gray-500">愿望清单</p>
-                          <p className="text-lg font-bold text-white">{snapshot.data.wishItems.length}</p>
-                        </div>
-                        <div className="px-3 py-2 rounded-lg bg-primary-800/50 border border-accent-500/10">
-                          <p className="text-xs text-gray-500">扫描任务</p>
-                          <p className="text-lg font-bold text-white">{Object.keys(snapshot.data.scanTasks).length}</p>
-                        </div>
-                        <div className="px-3 py-2 rounded-lg bg-primary-800/50 border border-accent-500/10">
-                          <p className="text-xs text-gray-500">作品信息</p>
-                          <p className="text-lg font-bold text-white">{Object.keys(snapshot.data.workInfos || {}).length}</p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-3">
-                        <button
-                          onClick={() => handlePrepareRestore(snapshot)}
-                          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent-500/20 text-accent-400 hover:bg-accent-500/30 border border-accent-500/30 transition-colors text-sm font-medium"
-                        >
-                          <RotateCcw className="w-4 h-4" />
-                          恢复到此快照
-                        </button>
-
-                        {isConfirmingDelete ? (
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-red-400">确认删除此快照？</span>
-                            <button
-                              onClick={() => handleDeleteSnapshot(snapshot.id)}
-                              className="px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30 transition-colors text-sm"
-                            >
-                              确认
-                            </button>
-                            <button
-                              onClick={() => setConfirmDeleteId(null)}
-                              className="px-3 py-1.5 rounded-lg bg-primary-700/50 text-gray-400 hover:text-white transition-colors text-sm"
-                            >
-                              取消
-                            </button>
-                          </div>
-                        ) : (
+                        <div className="flex items-center justify-end gap-2">
                           <button
-                            onClick={() => setConfirmDeleteId(snapshot.id)}
-                            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-colors text-sm"
+                            onClick={() => setRenamingId(null)}
+                            className="px-3 py-1.5 rounded-lg bg-primary-700/50 text-gray-400 hover:text-white transition-colors text-sm"
                           >
-                            <Trash2 className="w-4 h-4" />
-                            删除快照
+                            取消
                           </button>
-                        )}
+                          <button
+                            onClick={handleSaveRename}
+                            className="px-3 py-1.5 rounded-lg bg-accent-500/20 text-accent-400 hover:bg-accent-500/30 border border-accent-500/30 transition-colors text-sm"
+                          >
+                            保存
+                          </button>
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="pt-4 space-y-4">
+                        <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+                          <div className="px-3 py-2 rounded-lg bg-primary-800/50 border border-accent-500/10">
+                            <p className="text-xs text-gray-500">资料</p>
+                            <p className="text-lg font-bold text-white">{snapshot.data.materials.length}</p>
+                          </div>
+                          <div className="px-3 py-2 rounded-lg bg-primary-800/50 border border-accent-500/10">
+                            <p className="text-xs text-gray-500">角色</p>
+                            <p className="text-lg font-bold text-white">{snapshot.data.characters.length}</p>
+                          </div>
+                          <div className="px-3 py-2 rounded-lg bg-primary-800/50 border border-accent-500/10">
+                            <p className="text-xs text-gray-500">制作人员</p>
+                            <p className="text-lg font-bold text-white">{snapshot.data.staff.length}</p>
+                          </div>
+                          <div className="px-3 py-2 rounded-lg bg-primary-800/50 border border-accent-500/10">
+                            <p className="text-xs text-gray-500">愿望清单</p>
+                            <p className="text-lg font-bold text-white">{snapshot.data.wishItems.length}</p>
+                          </div>
+                          <div className="px-3 py-2 rounded-lg bg-primary-800/50 border border-accent-500/10">
+                            <p className="text-xs text-gray-500">扫描任务</p>
+                            <p className="text-lg font-bold text-white">{Object.keys(snapshot.data.scanTasks).length}</p>
+                          </div>
+                          <div className="px-3 py-2 rounded-lg bg-primary-800/50 border border-accent-500/10">
+                            <p className="text-xs text-gray-500">作品信息</p>
+                            <p className="text-lg font-bold text-white">{Object.keys(snapshot.data.workInfos || {}).length}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            onClick={() => handlePrepareRestore(snapshot)}
+                            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent-500/20 text-accent-400 hover:bg-accent-500/30 border border-accent-500/30 transition-colors text-sm font-medium"
+                          >
+                            <RotateCcw className="w-4 h-4" />
+                            恢复到此快照
+                          </button>
+
+                          <button
+                            onClick={() => handleStartRename(snapshot)}
+                            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-700/50 text-gray-300 hover:text-white hover:bg-primary-700 border border-accent-500/20 transition-colors text-sm"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                            重命名
+                          </button>
+
+                          <button
+                            onClick={() => handleExportSnapshot(snapshot)}
+                            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-700/50 text-gray-300 hover:text-white hover:bg-primary-700 border border-accent-500/20 transition-colors text-sm"
+                          >
+                            <Download className="w-4 h-4" />
+                            导出
+                          </button>
+
+                          {isConfirmingDelete ? (
+                            <div className="flex items-center gap-2 ml-auto">
+                              <span className="text-sm text-red-400">确认删除？</span>
+                              <button
+                                onClick={() => handleDeleteSnapshot(snapshot.id)}
+                                className="px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30 transition-colors text-sm"
+                              >
+                                确认
+                              </button>
+                              <button
+                                onClick={() => setConfirmDeleteId(null)}
+                                className="px-3 py-1.5 rounded-lg bg-primary-700/50 text-gray-400 hover:text-white transition-colors text-sm"
+                              >
+                                取消
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setConfirmDeleteId(snapshot.id)}
+                              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-colors text-sm ml-auto"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              删除
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -519,7 +795,27 @@ export function BackupCenter() {
               </div>
             </div>
 
+            <div className="p-4 rounded-lg bg-primary-800/30 border border-accent-500/20">
+              <div className="flex items-start gap-3">
+                <Info className="w-5 h-5 text-accent-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm text-accent-300 font-medium">
+                    将被替换的数据范围
+                  </p>
+                  <ul className="text-sm text-gray-400 mt-2 space-y-1">
+                    <li>• 资料列表（{diffModal.snapshot.data.materials.length} 条）</li>
+                    <li>• 角色列表（{diffModal.snapshot.data.characters.length} 条）</li>
+                    <li>• 制作人员列表（{diffModal.snapshot.data.staff.length} 条）</li>
+                    <li>• 扫描任务（{Object.keys(diffModal.snapshot.data.scanTasks).length} 项）</li>
+                    <li>• 愿望清单（{diffModal.snapshot.data.wishItems.length} 条）</li>
+                    <li>• 作品备注（{Object.keys(diffModal.snapshot.data.workInfos || {}).length} 条）</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
             <div className="space-y-3">
+              <h4 className="text-sm font-medium text-white">详细差异</h4>
               <DiffRow
                 label="资料"
                 current={materials.length}
@@ -601,6 +897,86 @@ export function BackupCenter() {
             </div>
           </div>
         )}
+      </Modal>
+
+      <Modal
+        isOpen={showImportModal}
+        onClose={handleCloseImportModal}
+        title="导入快照"
+        size="md"
+      >
+        <div className="space-y-5">
+          <div className="border-2 border-dashed border-accent-500/30 rounded-xl p-8 text-center hover:border-accent-500/50 transition-colors">
+            <Archive className="w-12 h-12 mx-auto text-accent-500 mb-4" />
+            <p className="text-white mb-2">选择快照文件</p>
+            <p className="text-gray-400 text-sm mb-4">支持 JSON 格式的快照文件</p>
+            <label className="inline-flex items-center gap-2 px-5 py-2 rounded-lg btn-secondary text-white cursor-pointer">
+              <Upload className="w-4 h-4" />
+              选择文件
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json"
+                onChange={handleImportFile}
+                className="hidden"
+              />
+            </label>
+          </div>
+
+          {importError && (
+            <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30">
+              <div className="flex items-center gap-3">
+                <XCircle className="w-5 h-5 text-red-400" />
+                <p className="text-sm text-red-300">{importError}</p>
+              </div>
+            </div>
+          )}
+
+          {importPreview && importPreview.length > 0 && (
+            <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/30 space-y-3">
+              <div className="flex items-center gap-3">
+                <CheckCircle className="w-5 h-5 text-green-400" />
+                <p className="text-sm text-green-300 font-medium">
+                  检测到 {importPreview.length} 个快照
+                </p>
+              </div>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {importPreview.map((s, i) => (
+                  <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-primary-800/50">
+                    <Database className="w-4 h-4 text-purple-400" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-white truncate">{s.label}</p>
+                      <p className="text-xs text-gray-400">
+                        {s.data.materials.length} 资料 / {s.data.characters.length} 角色
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <button
+              onClick={handleCloseImportModal}
+              className="px-4 py-2 rounded-lg bg-primary-700/50 text-gray-300 hover:text-white hover:bg-primary-700 transition-colors text-sm"
+            >
+              取消
+            </button>
+            <button
+              onClick={handleConfirmImport}
+              disabled={!importPreview || importPreview.length === 0}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                importPreview && importPreview.length > 0
+                  ? 'bg-accent-500/20 text-accent-400 hover:bg-accent-500/30 border border-accent-500/30'
+                  : 'bg-primary-700/30 text-gray-600 cursor-not-allowed'
+              }`}
+            >
+              <Plus className="w-4 h-4" />
+              确认导入
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   );
