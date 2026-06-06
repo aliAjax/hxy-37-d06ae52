@@ -41,7 +41,17 @@ const BACKUP_STORAGE_KEY = 'animation-backups';
 function loadSnapshots(): Snapshot[] {
   try {
     const raw = localStorage.getItem(BACKUP_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    const snapshots = JSON.parse(raw) as Snapshot[];
+    return snapshots.map((snapshot) => ({
+      ...snapshot,
+      data: {
+        ...snapshot.data,
+        scanTasks: snapshot.data.scanTasks || {},
+        wishItems: snapshot.data.wishItems || [],
+        workInfos: snapshot.data.workInfos || {},
+      },
+    }));
   } catch {
     return [];
   }
@@ -242,7 +252,7 @@ export function BackupCenter() {
       staff: data.staff,
       scanTasks: data.scanTasks,
       wishItems: data.wishItems,
-      workInfos: data.workInfos,
+      workInfos: data.workInfos || {},
     });
     setDiffModal(null);
   }, [diffModal]);

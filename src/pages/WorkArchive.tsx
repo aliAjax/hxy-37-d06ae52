@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { BookMarked, Library, Users, ScanLine, Clock, ChevronRight, Star } from 'lucide-react';
+import { BookMarked, Library, Users, ScanLine, Clock, Star } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { Material } from '../types';
 
