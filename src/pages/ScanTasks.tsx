@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Filter,
   Calendar,
@@ -130,7 +130,22 @@ export function ScanTasks() {
     [selectedTasks]
   );
 
-  const allSelected = filteredTasks.length > 0 && selectedIds.size === filteredTasks.length;
+  useEffect(() => {
+    const visibleIds = new Set(filteredTasks.map((t) => t.material.id));
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      let hasChange = false;
+      next.forEach((id) => {
+        if (!visibleIds.has(id)) {
+          next.delete(id);
+          hasChange = true;
+        }
+      });
+      return hasChange ? next : prev;
+    });
+  }, [filteredTasks]);
+
+  const allSelected = filteredTasks.length > 0 && selectedTasks.length === filteredTasks.length;
 
   const toggleSelectAll = () => {
     if (allSelected) {
@@ -153,10 +168,38 @@ export function ScanTasks() {
   };
 
   const openBatchModal = () => {
+    if (selectedTasks.length === 0) return;
+
+    const tasks = selectedTasks.filter((t) => t.task).map((t) => t.task!);
+    
+    let initialPriority: ScanPriority = 'medium';
+    let initialDate = '';
+    let initialNotes = '';
+
+    if (tasks.length > 0) {
+      const firstPriority = tasks[0].priority;
+      const allSamePriority = tasks.every((t) => t.priority === firstPriority);
+      if (allSamePriority) {
+        initialPriority = firstPriority;
+      }
+
+      const firstDate = tasks[0].plannedDate;
+      const allSameDate = tasks.every((t) => t.plannedDate === firstDate);
+      if (allSameDate) {
+        initialDate = firstDate || '';
+      }
+
+      const firstNotes = tasks[0].notes;
+      const allSameNotes = tasks.every((t) => t.notes === firstNotes);
+      if (allSameNotes) {
+        initialNotes = firstNotes || '';
+      }
+    }
+
     setBatchForm({
-      priority: 'medium',
-      plannedDate: '',
-      notes: '',
+      priority: initialPriority,
+      plannedDate: initialDate,
+      notes: initialNotes,
     });
     setBatchModalOpen(true);
   };
@@ -167,7 +210,8 @@ export function ScanTasks() {
   };
 
   const handleBatchConfirm = () => {
-    batchSetScanTasks(Array.from(selectedIds), batchForm);
+    const ids = selectedTasks.map((t) => t.material.id);
+    batchSetScanTasks(ids, batchForm);
     setSelectedIds(new Set());
     setConfirmModalOpen(false);
   };
@@ -383,22 +427,22 @@ export function ScanTasks() {
                   全选
                 </button>
                 <span className="text-sm text-gray-400">
-                  已选中 <span className="text-accent-400 font-medium">{selectedIds.size}</span> / {filteredTasks.length} 条
+                  已选中 <span className="text-accent-400 font-medium">{selectedTasks.length}</span> / {filteredTasks.length} 条
                 </span>
               </div>
               <div className="flex gap-3">
-                {selectedIds.size > 0 && (
+                {selectedTasks.length > 0 && (
                   <span className="text-sm text-gray-400 flex items-center">
                     其中已规划 <span className="text-blue-400 font-medium">{selectedWithTask}</span> 条，未规划 <span className="text-yellow-400 font-medium">{selectedWithoutTask}</span> 条
                   </span>
                 )}
                 <button
                   onClick={openBatchModal}
-                  disabled={selectedIds.size === 0}
+                  disabled={selectedTasks.length === 0}
                   className="flex items-center gap-2 px-5 py-2 rounded-lg btn-primary text-primary-900 text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Layers className="w-4 h-4" />
-                  批量规划 ({selectedIds.size})
+                  批量规划 ({selectedTasks.length})
                 </button>
               </div>
             </div>
@@ -562,7 +606,7 @@ export function ScanTasks() {
         <div className="space-y-6">
           <div className="p-4 rounded-lg bg-primary-800/30 border border-accent-500/10">
             <p className="text-sm text-gray-300">
-              已选择 <span className="text-accent-400 font-medium">{selectedIds.size}</span> 条资料。
+              已选择 <span className="text-accent-400 font-medium">{selectedTasks.length}</span> 条资料。
               其中 <span className="text-blue-400 font-medium">{selectedWithTask}</span> 条已有任务将被覆盖，
               <span className="text-yellow-400 font-medium">{selectedWithoutTask}</span> 条将新建任务。
             </p>
