@@ -27,4 +27,9 @@ export default defineConfig({
     }), 
     tsconfigPaths()
   ],
+  test: {
+    globals: true,
+    environment: 'node',
+    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+  },
 })
