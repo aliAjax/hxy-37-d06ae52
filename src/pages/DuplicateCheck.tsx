@@ -10,9 +10,11 @@ import {
   ChevronDown,
   ChevronUp,
   AlertCircle,
+  Settings,
+  RotateCcw,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { findDuplicatePairs, getFieldDifferences, DuplicatePair, FieldDiff } from '../utils/duplicateCheck';
+import { findDuplicatePairs, getFieldDifferences, DuplicatePair, FieldDiff, DuplicateCheckRules, DEFAULT_DUPLICATE_RULES } from '../utils/duplicateCheck';
 import { Material, MaterialTypeLabels, ScanStatusLabels } from '../types';
 import { Modal } from '../components/Modal';
 
@@ -21,9 +23,13 @@ type ActionType = 'keep' | 'delete' | 'skip';
 export function DuplicateCheck() {
   const materials = useStore((state) => state.materials);
   const deleteMaterial = useStore((state) => state.deleteMaterial);
+  const duplicateRules = useStore((state) => state.duplicateRules);
+  const updateDuplicateRules = useStore((state) => state.updateDuplicateRules);
+  const resetDuplicateRules = useStore((state) => state.resetDuplicateRules);
 
   const [expandedPairs, setExpandedPairs] = useState<Set<string>>(new Set());
   const [processedPairs, setProcessedPairs] = useState<Set<string>>(new Set());
+  const [showSettings, setShowSettings] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
     pair: DuplicatePair | null;
@@ -32,10 +38,10 @@ export function DuplicateCheck() {
   }>({ isOpen: false, pair: null, action: 'skip' });
 
   const duplicatePairs = useMemo(() => {
-    return findDuplicatePairs(materials).filter(
+    return findDuplicatePairs(materials, duplicateRules).filter(
       (pair) => !processedPairs.has(pair.id)
     );
-  }, [materials, processedPairs]);
+  }, [materials, duplicateRules, processedPairs]);
 
   const togglePair = (pairId: string) => {
     setExpandedPairs((prev) => {
@@ -84,6 +90,18 @@ export function DuplicateCheck() {
     if (score >= 70) return 'bg-red-500/20';
     if (score >= 50) return 'bg-yellow-500/20';
     return 'bg-blue-500/20';
+  };
+
+  const handleWeightChange = (key: keyof DuplicateCheckRules['weights'], value: number) => {
+    updateDuplicateRules({
+      weights: { [key]: value },
+    });
+  };
+
+  const handleThresholdChange = (key: keyof DuplicateCheckRules['thresholds'], value: number) => {
+    updateDuplicateRules({
+      thresholds: { [key]: value },
+    });
   };
 
   const typeIcons = {
@@ -202,6 +220,22 @@ export function DuplicateCheck() {
     );
   };
 
+  const weightConfig = [
+    { key: 'titleSimilarity' as const, label: '标题相似度权重', min: 0, max: 100, step: 5 },
+    { key: 'workSame' as const, label: '作品相同权重', min: 0, max: 50, step: 5 },
+    { key: 'publishDateSame' as const, label: '出版日期相同权重', min: 0, max: 50, step: 5 },
+    { key: 'pageCountClose' as const, label: '页数接近权重', min: 0, max: 50, step: 5 },
+    { key: 'characterOverlap' as const, label: '关联角色重合权重', min: 0, max: 50, step: 5 },
+  ];
+
+  const thresholdConfig = [
+    { key: 'titleSimilarityMin' as const, label: '标题相似度阈值 (%)', min: 0, max: 100, step: 5 },
+    { key: 'pageCountMaxDiff' as const, label: '页数最大差异 (页)', min: 0, max: 50, step: 1 },
+    { key: 'characterOverlapMin' as const, label: '角色最少重合数', min: 0, max: 10, step: 1 },
+    { key: 'overallMinScore' as const, label: '总体最低相似度 (%)', min: 0, max: 100, step: 5 },
+    { key: 'minMatchReasons' as const, label: '最少匹配条件数', min: 1, max: 5, step: 1 },
+  ];
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
@@ -214,6 +248,17 @@ export function DuplicateCheck() {
           </p>
         </div>
         <div className="flex items-center gap-4">
+          <button
+            onClick={() => setShowSettings(!showSettings)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+              showSettings
+                ? 'bg-accent-500/20 text-accent-400 border border-accent-500/30'
+                : 'glass text-gray-300 hover:text-white'
+            }`}
+          >
+            <Settings className="w-4 h-4" />
+            检测规则
+          </button>
           <div className="flex items-center gap-2 px-4 py-2 rounded-lg glass">
             <AlertTriangle className="w-5 h-5 text-yellow-500" />
             <span className="text-white font-medium">
@@ -222,6 +267,101 @@ export function DuplicateCheck() {
           </div>
         </div>
       </div>
+
+      {showSettings && (
+        <div className="glass rounded-xl p-6 border border-accent-500/20 animate-fade-in">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h3 className="font-medium text-white text-lg">检测规则配置</h3>
+              <p className="text-sm text-gray-400 mt-1">
+                调整检测参数，实时查看重复检测结果的变化
+              </p>
+            </div>
+            <button
+              onClick={resetDuplicateRules}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary-700/50 text-gray-300 hover:text-white hover:bg-primary-700 transition-colors text-sm"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              恢复默认
+            </button>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-8">
+            <div>
+              <h4 className="text-sm font-medium text-accent-400 mb-4 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-accent-400" />
+                权重配置
+              </h4>
+              <div className="space-y-5">
+                {weightConfig.map(({ key, label, min, max, step }) => (
+                  <div key={key}>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-sm text-gray-300">{label}</label>
+                      <span className="text-sm font-mono text-accent-400">
+                        {duplicateRules.weights[key]}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={min}
+                      max={max}
+                      step={step}
+                      value={duplicateRules.weights[key]}
+                      onChange={(e) => handleWeightChange(key, Number(e.target.value))}
+                      className="w-full h-2 bg-primary-700 rounded-lg appearance-none cursor-pointer accent-accent-500"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <h4 className="text-sm font-medium text-accent-400 mb-4 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-accent-400" />
+                阈值配置
+              </h4>
+              <div className="space-y-5">
+                {thresholdConfig.map(({ key, label, min, max, step }) => (
+                  <div key={key}>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-sm text-gray-300">{label}</label>
+                      <span className="text-sm font-mono text-accent-400">
+                        {duplicateRules.thresholds[key]}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={min}
+                      max={max}
+                      step={step}
+                      value={duplicateRules.thresholds[key]}
+                      onChange={(e) => handleThresholdChange(key, Number(e.target.value))}
+                      className="w-full h-2 bg-primary-700 rounded-lg appearance-none cursor-pointer accent-accent-500"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 pt-4 border-t border-accent-500/10">
+            <div className="flex items-center gap-4 text-sm text-gray-400">
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-green-500" />
+                <span>检测条件: 综合得分 ≥ {duplicateRules.thresholds.overallMinScore}%</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-blue-500" />
+                <span>且匹配条件 ≥ {duplicateRules.thresholds.minMatchReasons} 项</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-yellow-500" />
+                <span>当前检测出 {duplicatePairs.length} 对重复</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {duplicatePairs.length === 0 ? (
         <div className="glass rounded-2xl p-12 text-center">

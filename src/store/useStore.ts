@@ -4,6 +4,7 @@ import { Material, Character, Staff, SearchFilters, CSVRow, MaterialType, ScanSt
 import { sampleMaterials, sampleCharacters, sampleStaff } from '../data/sampleData';
 import { searchMaterials, generateId } from '../utils/search';
 import { validateMaterialData, exportToCSV as exportToCSVUtil } from '../utils/csv';
+import { DuplicateCheckRules, DEFAULT_DUPLICATE_RULES } from '../utils/duplicateCheck';
 
 export interface BatchUpdateData {
   scanStatus?: ScanStatus;
@@ -79,6 +80,13 @@ interface StoreState {
   setWorkFavorite: (workName: string, isFavorite: boolean) => void;
   setWorkNotes: (workName: string, notes: string) => void;
   updateWorkInfo: (workName: string, updates: Partial<WorkInfo>) => void;
+
+  duplicateRules: DuplicateCheckRules;
+  updateDuplicateRules: (updates: {
+    weights?: Partial<DuplicateCheckRules['weights']>;
+    thresholds?: Partial<DuplicateCheckRules['thresholds']>;
+  }) => void;
+  resetDuplicateRules: () => void;
 }
 
 export const useStore = create<StoreState>()(
@@ -91,6 +99,7 @@ export const useStore = create<StoreState>()(
       wishItems: [],
       workInfos: {},
       initialized: false,
+      duplicateRules: DEFAULT_DUPLICATE_RULES,
 
       addMaterial: (material) => {
         const now = new Date().toISOString();
@@ -613,6 +622,25 @@ export const useStore = create<StoreState>()(
             },
           };
         });
+      },
+
+      updateDuplicateRules: (updates) => {
+        set((state) => ({
+          duplicateRules: {
+            weights: {
+              ...state.duplicateRules.weights,
+              ...updates.weights,
+            },
+            thresholds: {
+              ...state.duplicateRules.thresholds,
+              ...updates.thresholds,
+            },
+          },
+        }));
+      },
+
+      resetDuplicateRules: () => {
+        set({ duplicateRules: DEFAULT_DUPLICATE_RULES });
       },
     }),
     {

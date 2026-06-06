@@ -16,6 +16,12 @@ import {
   CharacterPreview,
   StaffPreview,
 } from '../types';
+import { 
+  findSimilarMaterials, 
+  DEFAULT_DUPLICATE_RULES,
+  DuplicateCheckRules,
+  SimilarMaterial,
+} from './duplicateCheck';
 
 export const TARGET_FIELDS = [
   { key: 'title', label: '标题', required: true },
@@ -117,75 +123,15 @@ export const applyFieldMapping = (row: CSVRow, mappings: FieldMapping[]): CSVRow
   return result;
 };
 
-const calculateStringSimilarity = (str1: string, str2: string): number => {
-  if (!str1 || !str2) return 0;
-  const s1 = str1.toLowerCase().trim();
-  const s2 = str2.toLowerCase().trim();
-  if (s1 === s2) return 100;
-  if (s1.includes(s2) || s2.includes(s1)) {
-    const shorter = Math.min(s1.length, s2.length);
-    const longer = Math.max(s1.length, s2.length);
-    return Math.round((shorter / longer) * 80);
-  }
-  const words1 = new Set(s1.split(/\s+/));
-  const words2 = new Set(s2.split(/\s+/));
-  const commonWords = [...words1].filter((word) => words2.has(word));
-  if (commonWords.length > 0) {
-    const totalWords = Math.max(words1.size, words2.size);
-    return Math.round((commonWords.length / totalWords) * 60);
-  }
-  return 0;
-};
-
-const checkDuplicateRisk = (
-  material: Omit<Material, 'id' | 'createdAt' | 'updatedAt'>,
-  existingMaterials: Material[]
-): RowValidationResult['duplicateInfo'] => {
-  const similarMaterials: {
-    material: Material;
-    matchReasons: string[];
-    similarityScore: number;
-  }[] = [];
-
-  existingMaterials.forEach((existing) => {
-    const matchReasons: string[] = [];
-    let score = 0;
-
-    const titleSimilarity = calculateStringSimilarity(material.title, existing.title);
-    if (titleSimilarity >= 50) {
-      matchReasons.push(`标题相似 (${titleSimilarity}%)`);
-      score += titleSimilarity * 0.4;
-    }
-
-    if (material.work && existing.work && material.work === existing.work) {
-      matchReasons.push('作品相同');
-      score += 25;
-    }
-
-    if (material.publishDate && existing.publishDate && material.publishDate === existing.publishDate) {
-      matchReasons.push('出版日期相同');
-      score += 20;
-    }
-
-    if (material.pageCount && existing.pageCount && Math.abs(material.pageCount - existing.pageCount) <= 5) {
-      matchReasons.push('页数接近');
-      score += 15;
-    }
-
-    if (score >= 30 && matchReasons.length >= 2) {
-      similarMaterials.push({
-        material: existing,
-        matchReasons,
-        similarityScore: Math.round(score),
-      });
-    }
-  });
-
-  if (similarMaterials.length === 0) return undefined;
-
-  return {
-    similarMaterials: similarMaterials.sort((a, b) => b.similarityScore - a.similarityScore).slice(0, 3),
-  };
+const convertCharacterIdsToNames = (
+  materials: Material[],
+  characters: Character[]
+): Material[] => {
+  const idToNameMap = new Map(characters.map((c) => [c.id, c.name]));
+  return materials.map((m) => ({
+    ...m,
+    characterIds: m.characterIds.map((id) => idToNameMap.get(id) || id),
+  }));
 };
 
 const validateRowData = (
@@ -298,7 +244,8 @@ export const runPreflight = (
   fieldMappings: FieldMapping[],
   existingMaterials: Material[],
   existingCharacters: Character[],
-  existingStaff: Staff[]
+  existingStaff: Staff[],
+  duplicateRules: DuplicateCheckRules = DEFAULT_DUPLICATE_RULES
 ): PreflightResult => {
   const csvHeaders = getCSVHeaders(rawData);
   const rowResults: RowValidationResult[] = [];
@@ -307,6 +254,11 @@ export const runPreflight = (
   const characterPreviews = new Map<string, CharacterPreview>();
   const staffPreviews = new Map<string, StaffPreview>();
   const fieldsWithIssues = new Set<string>();
+
+  const existingMaterialsWithCharNames = convertCharacterIdsToNames(
+    existingMaterials,
+    existingCharacters
+  );
 
   rawData.forEach((row, index) => {
     const mappedRow = applyFieldMapping(row, fieldMappings);
@@ -319,11 +271,19 @@ export const runPreflight = (
       status = 'warning';
     }
 
-    let duplicateInfo: RowValidationResult['duplicateInfo'] = undefined;
+    let duplicateInfo: { similarMaterials: SimilarMaterial[] } | undefined = undefined;
     if (validation.material) {
-      duplicateInfo = checkDuplicateRisk(validation.material, existingMaterials);
-      if (duplicateInfo && status === 'success') {
-        status = 'duplicate';
+      const similar = findSimilarMaterials(
+        validation.material,
+        existingMaterialsWithCharNames,
+        duplicateRules,
+        3
+      );
+      if (similar.length > 0) {
+        duplicateInfo = { similarMaterials: similar };
+        if (status === 'success') {
+          status = 'duplicate';
+        }
       }
     }
 

@@ -1,9 +1,53 @@
 import { Material } from '../types';
 
+export interface DuplicateRuleWeights {
+  titleSimilarity: number;
+  workSame: number;
+  publishDateSame: number;
+  pageCountClose: number;
+  characterOverlap: number;
+}
+
+export interface DuplicateRuleThresholds {
+  titleSimilarityMin: number;
+  pageCountMaxDiff: number;
+  characterOverlapMin: number;
+  overallMinScore: number;
+  minMatchReasons: number;
+}
+
+export interface DuplicateCheckRules {
+  weights: DuplicateRuleWeights;
+  thresholds: DuplicateRuleThresholds;
+}
+
+export const DEFAULT_DUPLICATE_RULES: DuplicateCheckRules = {
+  weights: {
+    titleSimilarity: 40,
+    workSame: 25,
+    publishDateSame: 20,
+    pageCountClose: 15,
+    characterOverlap: 20,
+  },
+  thresholds: {
+    titleSimilarityMin: 50,
+    pageCountMaxDiff: 5,
+    characterOverlapMin: 1,
+    overallMinScore: 30,
+    minMatchReasons: 2,
+  },
+};
+
 export interface DuplicatePair {
   id: string;
   materialA: Material;
   materialB: Material;
+  matchReasons: string[];
+  similarityScore: number;
+}
+
+export interface SimilarMaterial {
+  material: Material;
   matchReasons: string[];
   similarityScore: number;
 }
@@ -42,22 +86,77 @@ const calculateStringSimilarity = (str1: string, str2: string): number => {
   return 0;
 };
 
-const isPublishDateSimilar = (date1: string, date2: string): boolean => {
-  if (!date1 || !date2) return false;
-  return date1 === date2;
+const calculateCharacterOverlap = (
+  chars1: string[],
+  chars2: string[]
+): { count: number; ratio: number } => {
+  if (!chars1.length || !chars2.length) return { count: 0, ratio: 0 };
+  
+  const set1 = new Set(chars1);
+  const set2 = new Set(chars2);
+  let commonCount = 0;
+  
+  set1.forEach((c) => {
+    if (set2.has(c)) commonCount++;
+  });
+  
+  const totalCount = Math.max(set1.size, set2.size);
+  return {
+    count: commonCount,
+    ratio: totalCount > 0 ? commonCount / totalCount : 0,
+  };
 };
 
-const isPageCountSimilar = (pages1: number, pages2: number, threshold: number = 5): boolean => {
-  if (!pages1 || !pages2) return false;
-  return Math.abs(pages1 - pages2) <= threshold;
+export const calculateSimilarity = (
+  materialA: Omit<Material, 'id' | 'createdAt' | 'updatedAt'> | Material,
+  materialB: Material,
+  rules: DuplicateCheckRules = DEFAULT_DUPLICATE_RULES
+): { score: number; reasons: string[] } => {
+  const { weights, thresholds } = rules;
+  const reasons: string[] = [];
+  let score = 0;
+  
+  const titleSimilarity = calculateStringSimilarity(materialA.title, materialB.title);
+  if (titleSimilarity >= thresholds.titleSimilarityMin) {
+    reasons.push(`标题相似 (${titleSimilarity}%)`);
+    score += (titleSimilarity / 100) * weights.titleSimilarity;
+  }
+  
+  if (materialA.work && materialB.work && materialA.work === materialB.work) {
+    reasons.push('作品相同');
+    score += weights.workSame;
+  }
+  
+  if (materialA.publishDate && materialB.publishDate && materialA.publishDate === materialB.publishDate) {
+    reasons.push('出版日期相同');
+    score += weights.publishDateSame;
+  }
+  
+  if (
+    materialA.pageCount &&
+    materialB.pageCount &&
+    Math.abs(materialA.pageCount - materialB.pageCount) <= thresholds.pageCountMaxDiff
+  ) {
+    reasons.push(`页数接近 (±${thresholds.pageCountMaxDiff}页)`);
+    score += weights.pageCountClose;
+  }
+  
+  const charOverlap = calculateCharacterOverlap(
+    materialA.characterIds || [],
+    materialB.characterIds || []
+  );
+  if (charOverlap.count >= thresholds.characterOverlapMin && charOverlap.count > 0) {
+    reasons.push(`关联角色重合 (${charOverlap.count}个)`);
+    score += charOverlap.ratio * weights.characterOverlap;
+  }
+  
+  return { score: Math.round(score), reasons };
 };
 
-const isWorkSame = (work1: string, work2: string): boolean => {
-  if (!work1 || !work2) return false;
-  return work1 === work2;
-};
-
-export const findDuplicatePairs = (materials: Material[]): DuplicatePair[] => {
+export const findDuplicatePairs = (
+  materials: Material[],
+  rules: DuplicateCheckRules = DEFAULT_DUPLICATE_RULES
+): DuplicatePair[] => {
   const pairs: DuplicatePair[] = [];
   const processedPairs = new Set<string>();
 
@@ -69,44 +168,47 @@ export const findDuplicatePairs = (materials: Material[]): DuplicatePair[] => {
       const pairKey = `${m1.id}-${m2.id}`;
       if (processedPairs.has(pairKey)) continue;
       
-      const matchReasons: string[] = [];
-      let score = 0;
+      const { score, reasons } = calculateSimilarity(m1, m2, rules);
       
-      const titleSimilarity = calculateStringSimilarity(m1.title, m2.title);
-      if (titleSimilarity >= 50) {
-        matchReasons.push(`标题相似 (${titleSimilarity}%)`);
-        score += titleSimilarity * 0.4;
-      }
-      
-      if (isWorkSame(m1.work, m2.work)) {
-        matchReasons.push('作品相同');
-        score += 25;
-      }
-      
-      if (isPublishDateSimilar(m1.publishDate, m2.publishDate)) {
-        matchReasons.push('出版日期相同');
-        score += 20;
-      }
-      
-      if (isPageCountSimilar(m1.pageCount, m2.pageCount)) {
-        matchReasons.push('页数接近');
-        score += 15;
-      }
-      
-      if (score >= 30 && matchReasons.length >= 2) {
+      if (score >= rules.thresholds.overallMinScore && reasons.length >= rules.thresholds.minMatchReasons) {
         processedPairs.add(pairKey);
         pairs.push({
           id: pairKey,
           materialA: m1,
           materialB: m2,
-          matchReasons,
-          similarityScore: Math.round(score),
+          matchReasons: reasons,
+          similarityScore: score,
         });
       }
     }
   }
 
   return pairs.sort((a, b) => b.similarityScore - a.similarityScore);
+};
+
+export const findSimilarMaterials = (
+  targetMaterial: Omit<Material, 'id' | 'createdAt' | 'updatedAt'> | Material,
+  existingMaterials: Material[],
+  rules: DuplicateCheckRules = DEFAULT_DUPLICATE_RULES,
+  maxResults: number = 3
+): SimilarMaterial[] => {
+  const similarMaterials: SimilarMaterial[] = [];
+
+  existingMaterials.forEach((existing) => {
+    const { score, reasons } = calculateSimilarity(targetMaterial, existing, rules);
+    
+    if (score >= rules.thresholds.overallMinScore && reasons.length >= rules.thresholds.minMatchReasons) {
+      similarMaterials.push({
+        material: existing,
+        matchReasons: reasons,
+        similarityScore: score,
+      });
+    }
+  });
+
+  return similarMaterials
+    .sort((a, b) => b.similarityScore - a.similarityScore)
+    .slice(0, maxResults);
 };
 
 export const getFieldDifferences = (materialA: Material, materialB: Material): FieldDiff[] => {

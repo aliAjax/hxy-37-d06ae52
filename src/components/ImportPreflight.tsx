@@ -34,6 +34,7 @@ import {
   exportFailedRows,
   downloadCSV,
 } from '../utils/csv';
+import { useStore } from '../store/useStore';
 
 interface ImportPreflightProps {
   rawData: CSVRow[];
@@ -61,6 +62,8 @@ export function ImportPreflight({
   onConfirm,
   onCancel,
 }: ImportPreflightProps) {
+  const duplicateRules = useStore((state) => state.duplicateRules);
+
   const csvHeaders = useMemo(() => {
     if (rawData.length === 0) return [];
     return Object.keys(rawData[0]).filter((k) => k !== '__parsed_extra');
@@ -86,7 +89,8 @@ export function ImportPreflight({
       fieldMappings,
       existingMaterials,
       existingCharacters,
-      existingStaff
+      existingStaff,
+      duplicateRules
     );
     setPreflightResult(result);
     setActiveTab('validation');
