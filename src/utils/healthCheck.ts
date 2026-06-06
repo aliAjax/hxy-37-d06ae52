@@ -3,7 +3,7 @@ import { Material, Character, Staff, ScanStatus } from '../types';
 export type HealthIssueType =
   | 'missing_work'
   | 'invalid_page_range'
-  | 'scan_status_mismatch'
+  | 'scan_status_empty'
   | 'character_no_work'
   | 'staff_no_role';
 
@@ -43,13 +43,9 @@ export interface FixPreview {
   title: string;
   canAutoFix: boolean;
   autoFixCount: number;
-  manualFixCount: number;
+  skippedCount: number;
   totalCount: number;
   changes: FixChange[];
-  requiresInput: boolean;
-  inputLabel?: string;
-  inputPlaceholder?: string;
-  inputField?: string;
 }
 
 export interface MaterialFixResult {
@@ -82,9 +78,9 @@ const issueTypeConfig: Record<HealthIssueType, { title: string; description: str
     icon: '📄',
     severity: 'error',
   },
-  scan_status_mismatch: {
-    title: '扫描状态与页码标注不一致',
-    description: '扫描状态与实际页码标注数量存在矛盾',
+  scan_status_empty: {
+    title: '扫描状态为空',
+    description: '这些资料没有设置扫描状态，可根据页码标注自动推断',
     icon: '📷',
     severity: 'warning',
   },
@@ -162,33 +158,20 @@ export const checkInvalidPageRange = (materials: Material[]): HealthIssue[] => {
   return issues;
 };
 
-export const checkScanStatusMismatch = (materials: Material[]): HealthIssue[] => {
+export const checkScanStatusEmpty = (materials: Material[]): HealthIssue[] => {
   const issues: HealthIssue[] = [];
+  const validStatuses: ScanStatus[] = ['unscanned', 'partial', 'completed'];
 
   materials.forEach((m) => {
-    const hasPageRefs = m.pageReferences && m.pageReferences.length > 0;
-
-    if (m.scanStatus === 'completed' && !hasPageRefs) {
+    if (!m.scanStatus || !validStatuses.includes(m.scanStatus)) {
+      const hasPageRefs = m.pageReferences && m.pageReferences.length > 0;
+      const inferredStatus = hasPageRefs ? '已完成' : '未扫描';
       issues.push({
-        id: `scan_mismatch_${m.id}`,
-        type: 'scan_status_mismatch' as HealthIssueType,
+        id: `scan_empty_${m.id}`,
+        type: 'scan_status_empty' as HealthIssueType,
         severity: 'warning',
-        title: '扫描状态与页码标注不一致',
-        description: `资料「${m.title}」标记为已完成扫描，但没有任何页码标注`,
-        entityType: 'material',
-        entityId: m.id,
-        entityName: m.title,
-        fixAction: 'edit_material',
-      });
-    }
-
-    if (m.scanStatus === 'unscanned' && hasPageRefs) {
-      issues.push({
-        id: `scan_mismatch_${m.id}`,
-        type: 'scan_status_mismatch' as HealthIssueType,
-        severity: 'warning',
-        title: '扫描状态与页码标注不一致',
-        description: `资料「${m.title}」标记为未扫描，但已有 ${m.pageReferences.length} 条页码标注`,
+        title: '扫描状态为空',
+        description: `资料「${m.title}」没有设置扫描状态，根据页码标注可推断为「${inferredStatus}」`,
         entityType: 'material',
         entityId: m.id,
         entityName: m.title,
@@ -268,7 +251,7 @@ export const generateMissingWorkFixPreview = (
 ): FixPreview => {
   const changes: FixChange[] = [];
   let autoFixCount = 0;
-  let manualFixCount = 0;
+  let skippedCount = 0;
 
   materials.forEach((m) => {
     if (!m.work || !m.work.trim()) {
@@ -293,10 +276,10 @@ export const generateMissingWorkFixPreview = (
           field: 'work',
           fieldLabel: '作品名',
           oldValue: '(空)',
-          newValue: '(需手动指定)',
+          newValue: '(无法判断，将跳过)',
           autoDetermined: false,
         });
-        manualFixCount++;
+        skippedCount++;
       }
     }
   });
@@ -306,13 +289,9 @@ export const generateMissingWorkFixPreview = (
     title: issueTypeConfig.missing_work.title,
     canAutoFix: autoFixCount > 0,
     autoFixCount,
-    manualFixCount,
-    totalCount: autoFixCount + manualFixCount,
+    skippedCount,
+    totalCount: autoFixCount + skippedCount,
     changes,
-    requiresInput: manualFixCount > 0,
-    inputLabel: '为其余资料批量设置作品名',
-    inputPlaceholder: '请输入作品名',
-    inputField: 'work',
   };
 };
 
@@ -403,44 +382,40 @@ export const generateInvalidPageRangeFixPreview = (materials: Material[]): FixPr
     title: issueTypeConfig.invalid_page_range.title,
     canAutoFix: affectedMaterials > 0,
     autoFixCount: affectedMaterials,
-    manualFixCount: 0,
+    skippedCount: 0,
     totalCount: affectedMaterials,
     changes,
-    requiresInput: false,
   };
 };
 
 const getCorrectScanStatus = (material: Material): ScanStatus | null => {
+  const validStatuses: ScanStatus[] = ['unscanned', 'partial', 'completed'];
+  if (material.scanStatus && validStatuses.includes(material.scanStatus)) {
+    return null;
+  }
+
   const hasPageRefs = material.pageReferences && material.pageReferences.length > 0;
-
-  if (material.scanStatus === 'completed' && !hasPageRefs) {
-    return 'unscanned';
-  }
-  if (material.scanStatus === 'unscanned' && hasPageRefs) {
-    return 'completed';
-  }
-
-  return null;
+  return hasPageRefs ? 'completed' : 'unscanned';
 };
 
-export const generateScanStatusMismatchFixPreview = (materials: Material[]): FixPreview => {
+export const generateScanStatusEmptyFixPreview = (materials: Material[]): FixPreview => {
   const changes: FixChange[] = [];
+  const statusLabels: Record<ScanStatus, string> = {
+    unscanned: '未扫描',
+    partial: '部分扫描',
+    completed: '已完成',
+  };
 
   materials.forEach((m) => {
     const newStatus = getCorrectScanStatus(m);
     if (newStatus) {
-      const statusLabels: Record<ScanStatus, string> = {
-        unscanned: '未扫描',
-        partial: '部分扫描',
-        completed: '已完成',
-      };
       changes.push({
         entityId: m.id,
         entityName: m.title,
         entityType: 'material',
         field: 'scanStatus',
         fieldLabel: '扫描状态',
-        oldValue: statusLabels[m.scanStatus],
+        oldValue: '(空)',
         newValue: statusLabels[newStatus],
         autoDetermined: true,
       });
@@ -448,14 +423,13 @@ export const generateScanStatusMismatchFixPreview = (materials: Material[]): Fix
   });
 
   return {
-    type: 'scan_status_mismatch',
-    title: issueTypeConfig.scan_status_mismatch.title,
+    type: 'scan_status_empty',
+    title: issueTypeConfig.scan_status_empty.title,
     canAutoFix: changes.length > 0,
     autoFixCount: changes.length,
-    manualFixCount: 0,
+    skippedCount: 0,
     totalCount: changes.length,
     changes,
-    requiresInput: false,
   };
 };
 
@@ -465,7 +439,7 @@ export const generateCharacterNoWorkFixPreview = (
 ): FixPreview => {
   const changes: FixChange[] = [];
   let autoFixCount = 0;
-  let manualFixCount = 0;
+  let skippedCount = 0;
 
   characters.forEach((c) => {
     if (!c.work || !c.work.trim()) {
@@ -490,10 +464,10 @@ export const generateCharacterNoWorkFixPreview = (
           field: 'work',
           fieldLabel: '所属作品',
           oldValue: '(空)',
-          newValue: '(需手动指定)',
+          newValue: '(无法判断，将跳过)',
           autoDetermined: false,
         });
-        manualFixCount++;
+        skippedCount++;
       }
     }
   });
@@ -503,13 +477,9 @@ export const generateCharacterNoWorkFixPreview = (
     title: issueTypeConfig.character_no_work.title,
     canAutoFix: autoFixCount > 0,
     autoFixCount,
-    manualFixCount,
-    totalCount: autoFixCount + manualFixCount,
+    skippedCount,
+    totalCount: autoFixCount + skippedCount,
     changes,
-    requiresInput: manualFixCount > 0,
-    inputLabel: '为其余角色批量设置所属作品',
-    inputPlaceholder: '请输入作品名',
-    inputField: 'work',
   };
 };
 
@@ -523,8 +493,8 @@ export const generateFixPreview = (
       return generateMissingWorkFixPreview(materials, characters);
     case 'invalid_page_range':
       return generateInvalidPageRangeFixPreview(materials);
-    case 'scan_status_mismatch':
-      return generateScanStatusMismatchFixPreview(materials);
+    case 'scan_status_empty':
+      return generateScanStatusEmptyFixPreview(materials);
     case 'character_no_work':
       return generateCharacterNoWorkFixPreview(characters, materials);
     default:
@@ -535,8 +505,7 @@ export const generateFixPreview = (
 export const executeFixes = (
   type: HealthIssueType,
   materials: Material[],
-  characters: Character[],
-  manualInput?: string
+  characters: Character[]
 ): FixExecutionResult => {
   const materialUpdates: MaterialFixResult[] = [];
   const characterUpdates: CharacterFixResult[] = [];
@@ -548,11 +517,10 @@ export const executeFixes = (
       materials.forEach((m) => {
         if (!m.work || !m.work.trim()) {
           const inferredWork = inferWorkFromCharacters(m, characters);
-          const workToUse = inferredWork || (manualInput && manualInput.trim() ? manualInput.trim() : null);
-          if (workToUse) {
+          if (inferredWork) {
             materialUpdates.push({
               id: m.id,
-              updates: { work: workToUse },
+              updates: { work: inferredWork },
             });
             fixedCount++;
           } else {
@@ -579,7 +547,7 @@ export const executeFixes = (
       });
       break;
     }
-    case 'scan_status_mismatch': {
+    case 'scan_status_empty': {
       materials.forEach((m) => {
         const newStatus = getCorrectScanStatus(m);
         if (newStatus) {
@@ -596,11 +564,10 @@ export const executeFixes = (
       characters.forEach((c) => {
         if (!c.work || !c.work.trim()) {
           const inferredWork = inferWorkFromMaterials(c, materials);
-          const workToUse = inferredWork || (manualInput && manualInput.trim() ? manualInput.trim() : null);
-          if (workToUse) {
+          if (inferredWork) {
             characterUpdates.push({
               id: c.id,
-              updates: { work: workToUse },
+              updates: { work: inferredWork },
             });
             fixedCount++;
           } else {
@@ -630,7 +597,7 @@ export const runAllHealthChecks = (
   const allIssues: HealthIssue[] = [
     ...checkMissingWork(materials),
     ...checkInvalidPageRange(materials),
-    ...checkScanStatusMismatch(materials),
+    ...checkScanStatusEmpty(materials),
     ...checkCharacterNoWork(characters),
     ...checkStaffNoRole(staff),
   ];
@@ -639,7 +606,7 @@ export const runAllHealthChecks = (
   const types: HealthIssueType[] = [
     'missing_work',
     'invalid_page_range',
-    'scan_status_mismatch',
+    'scan_status_empty',
     'character_no_work',
     'staff_no_role',
   ];

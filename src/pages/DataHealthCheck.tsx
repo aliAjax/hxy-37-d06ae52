@@ -31,7 +31,7 @@ import { MaterialForm } from '../components/MaterialForm';
 const fixableIssueTypes: HealthIssueType[] = [
   'missing_work',
   'invalid_page_range',
-  'scan_status_mismatch',
+  'scan_status_empty',
   'character_no_work',
 ];
 
@@ -48,7 +48,6 @@ export function DataHealthCheck() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showFixModal, setShowFixModal] = useState(false);
   const [fixPreview, setFixPreview] = useState<FixPreview | null>(null);
-  const [manualInput, setManualInput] = useState('');
   const [fixSuccess, setFixSuccess] = useState<{ fixed: number; skipped: number } | null>(null);
 
   const issueGroups = useMemo(() => {
@@ -101,7 +100,6 @@ export function DataHealthCheck() {
     );
     if (preview) {
       setFixPreview(preview);
-      setManualInput('');
       setFixSuccess(null);
       setShowFixModal(true);
     }
@@ -110,7 +108,6 @@ export function DataHealthCheck() {
   const handleCloseFixModal = () => {
     setShowFixModal(false);
     setFixPreview(null);
-    setManualInput('');
     setFixSuccess(null);
   };
 
@@ -120,8 +117,7 @@ export function DataHealthCheck() {
     const result = executeFixes(
       fixPreview.type,
       materials,
-      characters,
-      manualInput
+      characters
     );
 
     result.materialUpdates.forEach(({ id, updates }) => {
@@ -387,7 +383,7 @@ export function DataHealthCheck() {
               </button>
               <button
                 onClick={handleExecuteFix}
-                disabled={fixPreview?.requiresInput && !manualInput.trim()}
+                disabled={!fixPreview || fixPreview.autoFixCount === 0}
                 className="px-4 py-2 rounded-lg bg-green-500 text-white hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 <Check className="w-4 h-4" />
@@ -412,34 +408,16 @@ export function DataHealthCheck() {
               <div className="text-right">
                 {fixPreview.autoFixCount > 0 && (
                   <p className="text-sm text-green-400">
-                    自动推断 {fixPreview.autoFixCount} 项
+                    可自动修复 {fixPreview.autoFixCount} 项
                   </p>
                 )}
-                {fixPreview.manualFixCount > 0 && (
-                  <p className="text-sm text-yellow-400">
-                    需手动指定 {fixPreview.manualFixCount} 项
+                {fixPreview.skippedCount > 0 && (
+                  <p className="text-sm text-gray-400">
+                    无法判断 {fixPreview.skippedCount} 项
                   </p>
                 )}
               </div>
             </div>
-
-            {fixPreview.requiresInput && fixPreview.inputLabel && (
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-300">
-                  {fixPreview.inputLabel}
-                </label>
-                <input
-                  type="text"
-                  value={manualInput}
-                  onChange={(e) => setManualInput(e.target.value)}
-                  placeholder={fixPreview.inputPlaceholder || '请输入'}
-                  className="w-full px-4 py-2.5 rounded-lg bg-primary-700/50 border border-accent-500/30 text-white placeholder-gray-500 focus:outline-none focus:border-accent-400 transition-colors"
-                />
-                <p className="text-xs text-gray-500">
-                  填写后将应用于所有无法自动推断的记录
-                </p>
-              </div>
-            )}
 
             <div className="space-y-3">
               <h4 className="text-sm font-medium text-gray-300">变更预览</h4>
@@ -450,7 +428,7 @@ export function DataHealthCheck() {
                     className={`p-3 rounded-lg border ${
                       change.autoDetermined
                         ? 'bg-green-500/10 border-green-500/20'
-                        : 'bg-yellow-500/10 border-yellow-500/20'
+                        : 'bg-gray-500/10 border-gray-500/20'
                     }`}
                   >
                     <div className="flex items-center justify-between gap-4">
@@ -476,7 +454,7 @@ export function DataHealthCheck() {
                           className={`text-sm font-medium ${
                             change.autoDetermined
                               ? 'text-green-400'
-                              : 'text-yellow-400'
+                              : 'text-gray-400'
                           }`}
                         >
                           {String(change.newValue)}
