@@ -602,6 +602,23 @@ export function ScanTasks() {
         onClose={() => setBatchModalOpen(false)}
         title="批量规划任务"
         size="md"
+        footer={
+          <div className="flex justify-end gap-4">
+            <button
+              onClick={() => setBatchModalOpen(false)}
+              className="px-6 py-2 rounded-lg btn-secondary text-white font-medium"
+            >
+              取消
+            </button>
+            <button
+              onClick={handleBatchPreview}
+              className="flex items-center gap-2 px-6 py-2 rounded-lg btn-primary text-primary-900 font-medium"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              下一步：确认
+            </button>
+          </div>
+        }
       >
         <div className="space-y-6">
           <div className="p-4 rounded-lg bg-primary-800/30 border border-accent-500/10">
@@ -648,22 +665,6 @@ export function ScanTasks() {
               className="w-full px-4 py-3 rounded-lg bg-primary-800/50 border border-accent-500/20 text-white input-focus resize-none h-24"
             />
           </div>
-
-          <div className="flex justify-end gap-4 pt-4 border-t border-accent-500/20">
-            <button
-              onClick={() => setBatchModalOpen(false)}
-              className="px-6 py-2 rounded-lg btn-secondary text-white font-medium"
-            >
-              取消
-            </button>
-            <button
-              onClick={handleBatchPreview}
-              className="flex items-center gap-2 px-6 py-2 rounded-lg btn-primary text-primary-900 font-medium"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              下一步：确认
-            </button>
-          </div>
         </div>
       </Modal>
 
@@ -672,6 +673,26 @@ export function ScanTasks() {
         onClose={() => setConfirmModalOpen(false)}
         title="确认批量规划"
         size="lg"
+        footer={
+          <div className="flex justify-end gap-4">
+            <button
+              onClick={() => {
+                setConfirmModalOpen(false);
+                setBatchModalOpen(true);
+              }}
+              className="px-6 py-2 rounded-lg btn-secondary text-white font-medium"
+            >
+              返回修改
+            </button>
+            <button
+              onClick={handleBatchConfirm}
+              className="flex items-center gap-2 px-6 py-2 rounded-lg btn-primary text-primary-900 font-medium"
+            >
+              <CheckSquare className="w-4 h-4" />
+              确认应用
+            </button>
+          </div>
+        }
       >
         <div className="space-y-6">
           <div className="space-y-4">
@@ -764,25 +785,6 @@ export function ScanTasks() {
                 </tbody>
               </table>
             </div>
-          </div>
-
-          <div className="flex justify-end gap-4 pt-4 border-t border-accent-500/20">
-            <button
-              onClick={() => {
-                setConfirmModalOpen(false);
-                setBatchModalOpen(true);
-              }}
-              className="px-6 py-2 rounded-lg btn-secondary text-white font-medium"
-            >
-              返回修改
-            </button>
-            <button
-              onClick={handleBatchConfirm}
-              className="flex items-center gap-2 px-6 py-2 rounded-lg btn-primary text-primary-900 font-medium"
-            >
-              <CheckSquare className="w-4 h-4" />
-              确认应用
-            </button>
           </div>
         </div>
       </Modal>

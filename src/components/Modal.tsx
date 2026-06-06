@@ -6,10 +6,11 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
+  footer?: React.ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl';
 }
 
-export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalProps) {
+export function Modal({ isOpen, onClose, title, children, footer, size = 'md' }: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -51,10 +52,11 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
           relative w-full ${sizeClasses[size]} max-h-[90vh]
           glass rounded-2xl overflow-hidden
           animate-fade-in
+          flex flex-col
         `}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-6 border-b border-accent-500/20">
+        <div className="flex items-center justify-between p-6 border-b border-accent-500/20 flex-shrink-0">
           <h2 className="font-serif text-xl font-bold gradient-text">{title}</h2>
           <button
             onClick={onClose}
@@ -63,9 +65,14 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
             <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
+        <div className="p-6 overflow-y-auto flex-1">
           {children}
         </div>
+        {footer && (
+          <div className="p-6 border-t border-accent-500/20 flex-shrink-0">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );
