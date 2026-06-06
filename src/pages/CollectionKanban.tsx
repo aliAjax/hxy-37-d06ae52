@@ -120,7 +120,7 @@ export function CollectionKanban() {
   const scanTasks = useStore((state) => state.scanTasks);
   const convertWishToMaterial = useStore((state) => state.convertWishToMaterial);
   const setScanTask = useStore((state) => state.setScanTask);
-  const updateMaterial = useStore((state) => state.updateMaterial);
+  const completeMaterialScan = useStore((state) => state.completeMaterialScan);
   const characters = useStore((state) => state.characters);
   const staff = useStore((state) => state.staff);
   const addCharacter = useStore((state) => state.addCharacter);
@@ -319,7 +319,7 @@ export function CollectionKanban() {
 
   const handleMarkCompleted = (materialId: string) => {
     if (window.confirm('确定要标记为已完成扫描吗？')) {
-      updateMaterial(materialId, { scanStatus: 'completed' });
+      completeMaterialScan(materialId);
     }
   };
 

@@ -62,6 +62,7 @@ interface StoreState {
   deleteScanTask: (materialId: string) => void;
   getAllScanTasks: () => ScanTask[];
   batchSetScanTasks: (materialIds: string[], task: Omit<ScanTask, 'materialId' | 'createdAt' | 'updatedAt'>) => { created: number; updated: number; };
+  completeMaterialScan: (materialId: string) => void;
 
   addWishItem: (item: Omit<WishItem, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateWishItem: (id: string, updates: Partial<WishItem>) => void;
@@ -449,6 +450,21 @@ export const useStore = create<StoreState>()(
         return { created, updated };
       },
 
+      completeMaterialScan: (materialId) => {
+        set((state) => {
+          const newScanTasks = { ...state.scanTasks };
+          delete newScanTasks[materialId];
+          return {
+            materials: state.materials.map((m) =>
+              m.id === materialId
+                ? { ...m, scanStatus: 'completed', updatedAt: new Date().toISOString() }
+                : m
+            ),
+            scanTasks: newScanTasks,
+          };
+        });
+      },
+
       addWishItem: (item) => {
         const now = new Date().toISOString();
         const newWishItem: WishItem = {
@@ -541,27 +557,36 @@ export const useStore = create<StoreState>()(
 
       batchUpdateMaterials: (ids, updates) => {
         const now = new Date().toISOString();
-        set((state) => ({
-          materials: state.materials.map((m) => {
-            if (!ids.includes(m.id)) return m;
-            const updated = { ...m, updatedAt: now };
-            if (updates.scanStatus !== undefined) updated.scanStatus = updates.scanStatus;
-            if (updates.work !== undefined) updated.work = updates.work;
-            if (updates.type !== undefined) updated.type = updates.type;
-            if (updates.purchaseSource !== undefined) updated.purchaseSource = updates.purchaseSource;
-            if (updates.appendCharacterIds && updates.appendCharacterIds.length > 0) {
-              const existing = new Set(updated.characterIds);
-              updates.appendCharacterIds.forEach((id) => existing.add(id));
-              updated.characterIds = Array.from(existing);
-            }
-            if (updates.appendStaffIds && updates.appendStaffIds.length > 0) {
-              const existing = new Set(updated.staffIds);
-              updates.appendStaffIds.forEach((id) => existing.add(id));
-              updated.staffIds = Array.from(existing);
-            }
-            return updated;
-          }),
-        }));
+        set((state) => {
+          const newScanTasks = { ...state.scanTasks };
+          if (updates.scanStatus === 'completed') {
+            ids.forEach((id) => {
+              delete newScanTasks[id];
+            });
+          }
+          return {
+            materials: state.materials.map((m) => {
+              if (!ids.includes(m.id)) return m;
+              const updated = { ...m, updatedAt: now };
+              if (updates.scanStatus !== undefined) updated.scanStatus = updates.scanStatus;
+              if (updates.work !== undefined) updated.work = updates.work;
+              if (updates.type !== undefined) updated.type = updates.type;
+              if (updates.purchaseSource !== undefined) updated.purchaseSource = updates.purchaseSource;
+              if (updates.appendCharacterIds && updates.appendCharacterIds.length > 0) {
+                const existing = new Set(updated.characterIds);
+                updates.appendCharacterIds.forEach((id) => existing.add(id));
+                updated.characterIds = Array.from(existing);
+              }
+              if (updates.appendStaffIds && updates.appendStaffIds.length > 0) {
+                const existing = new Set(updated.staffIds);
+                updates.appendStaffIds.forEach((id) => existing.add(id));
+                updated.staffIds = Array.from(existing);
+              }
+              return updated;
+            }),
+            scanTasks: newScanTasks,
+          };
+        });
       },
 
       getWorkInfo: (workName) => {
