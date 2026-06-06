@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Material, Character, Staff, SearchFilters, CSVRow, MaterialType, ScanStatus, ScanTask, WishItem, WishPriority, RowValidationResult, ImportResult } from '../types';
+import { Material, Character, Staff, SearchFilters, CSVRow, MaterialType, ScanStatus, ScanTask, WishItem, WishPriority, RowValidationResult, ImportResult, WorkInfo } from '../types';
 import { sampleMaterials, sampleCharacters, sampleStaff } from '../data/sampleData';
 import { searchMaterials, generateId } from '../utils/search';
 import { validateMaterialData, exportToCSV as exportToCSVUtil } from '../utils/csv';
@@ -20,6 +20,7 @@ interface StoreState {
   staff: Staff[];
   scanTasks: Record<string, ScanTask>;
   wishItems: WishItem[];
+  workInfos: Record<string, WorkInfo>;
   initialized: boolean;
 
   addMaterial: (material: Omit<Material, 'id' | 'createdAt' | 'updatedAt'>) => void;
@@ -73,6 +74,11 @@ interface StoreState {
   };
 
   batchUpdateMaterials: (ids: string[], updates: BatchUpdateData) => void;
+
+  getWorkInfo: (workName: string) => WorkInfo | undefined;
+  setWorkFavorite: (workName: string, isFavorite: boolean) => void;
+  setWorkNotes: (workName: string, notes: string) => void;
+  updateWorkInfo: (workName: string, updates: Partial<WorkInfo>) => void;
 }
 
 export const useStore = create<StoreState>()(
@@ -83,6 +89,7 @@ export const useStore = create<StoreState>()(
       staff: [],
       scanTasks: {},
       wishItems: [],
+      workInfos: {},
       initialized: false,
 
       addMaterial: (material) => {
@@ -329,6 +336,9 @@ export const useStore = create<StoreState>()(
           materials: [],
           characters: [],
           staff: [],
+          scanTasks: {},
+          wishItems: [],
+          workInfos: {},
         });
       },
 
@@ -544,10 +554,70 @@ export const useStore = create<StoreState>()(
           }),
         }));
       },
+
+      getWorkInfo: (workName) => {
+        return get().workInfos[workName];
+      },
+
+      setWorkFavorite: (workName, isFavorite) => {
+        const now = new Date().toISOString();
+        set((state) => {
+          const existing = state.workInfos[workName];
+          return {
+            workInfos: {
+              ...state.workInfos,
+              [workName]: {
+                workName,
+                isFavorite,
+                notes: existing?.notes || '',
+                updatedAt: now,
+              },
+            },
+          };
+        });
+      },
+
+      setWorkNotes: (workName, notes) => {
+        const now = new Date().toISOString();
+        set((state) => {
+          const existing = state.workInfos[workName];
+          return {
+            workInfos: {
+              ...state.workInfos,
+              [workName]: {
+                workName,
+                isFavorite: existing?.isFavorite || false,
+                notes,
+                updatedAt: now,
+              },
+            },
+          };
+        });
+      },
+
+      updateWorkInfo: (workName, updates) => {
+        const now = new Date().toISOString();
+        set((state) => {
+          const existing = state.workInfos[workName];
+          return {
+            workInfos: {
+              ...state.workInfos,
+              [workName]: {
+                workName,
+                isFavorite: false,
+                notes: '',
+                ...existing,
+                ...updates,
+                updatedAt: now,
+              },
+            },
+          };
+        });
+      },
     }),
     {
       name: 'animation-material-collection',
-      version: 2,
+      version: 3,
       migrate: (persistedState: unknown, version: number) => {
         const state = persistedState as Record<string, unknown>;
 
@@ -562,6 +632,10 @@ export const useStore = create<StoreState>()(
               task.notes = '';
             }
           });
+        }
+
+        if (version < 3 && !state.workInfos) {
+          state.workInfos = {};
         }
 
         return state as unknown as StoreState;

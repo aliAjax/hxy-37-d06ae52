@@ -12,6 +12,10 @@ import {
   BookOpen,
   ChevronDown,
   ChevronUp,
+  Star,
+  Edit3,
+  Check,
+  X,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import {
@@ -71,9 +75,14 @@ export function WorkDetail() {
   const materials = useStore((state) => state.materials);
   const allCharacters = useStore((state) => state.characters);
   const allStaff = useStore((state) => state.staff);
+  const workInfos = useStore((state) => state.workInfos);
+  const setWorkFavorite = useStore((state) => state.setWorkFavorite);
+  const setWorkNotes = useStore((state) => state.setWorkNotes);
 
   const [expandedMaterials, setExpandedMaterials] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<TabType>('materials');
+  const [isEditingNotes, setIsEditingNotes] = useState(false);
+  const [notesDraft, setNotesDraft] = useState('');
 
   const workData = useMemo(() => {
     const workMaterials = materials.filter(
@@ -241,8 +250,10 @@ export function WorkDetail() {
       characterCount: workCharacters.length,
       staffCount: workStaff.length,
       pageReferenceCount: allPageReferences.length,
+      isFavorite: workInfos[decodedWorkName]?.isFavorite || false,
+      notes: workInfos[decodedWorkName]?.notes || '',
     };
-  }, [decodedWorkName, materials, allCharacters, allStaff]);
+  }, [decodedWorkName, materials, allCharacters, allStaff, workInfos]);
 
   const toggleMaterial = (materialId: string) => {
     setExpandedMaterials((prev) => {
@@ -309,10 +320,24 @@ export function WorkDetail() {
         >
           <ArrowLeft className="w-5 h-5" />
         </Link>
-        <div>
-          <h1 className="font-serif text-3xl font-bold gradient-text mb-2">
-            {workData.name}
-          </h1>
+        <div className="flex-1">
+          <div className="flex items-center gap-3">
+            <h1 className="font-serif text-3xl font-bold gradient-text mb-2">
+              {workData.name}
+            </h1>
+            <button
+              onClick={() => setWorkFavorite(decodedWorkName, !workData.isFavorite)}
+              className={`p-2 rounded-lg transition-colors ${workData.isFavorite ? 'text-yellow-400 bg-yellow-500/20 hover:bg-yellow-500/30' : 'text-gray-500 hover:text-yellow-400 hover:bg-yellow-500/10'}`}
+              title={workData.isFavorite ? '取消重点' : '设为重点作品'}
+            >
+              <Star className={`w-6 h-6 ${workData.isFavorite ? 'fill-yellow-400' : ''}`} />
+            </button>
+            {workData.isFavorite && (
+              <span className="px-3 py-1 text-sm font-medium rounded-full bg-yellow-500/20 text-yellow-400">
+                重点作品
+              </span>
+            )}
+          </div>
           <p className="text-gray-400">
             作品详情与资料汇总
           </p>
@@ -396,6 +421,66 @@ export function WorkDetail() {
             <span className="text-sm text-gray-400">已完成: {workData.scanStatus.completed}</span>
           </div>
         </div>
+      </div>
+
+      <div className="glass rounded-xl p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-serif text-lg font-bold text-white flex items-center gap-2">
+            <BookMarked className="w-5 h-5 text-accent-500" />
+            归档备注
+          </h2>
+          {!isEditingNotes && (
+            <button
+              onClick={() => {
+                setNotesDraft(workData.notes);
+                setIsEditingNotes(true);
+              }}
+              className="flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg bg-accent-500/20 text-accent-400 hover:bg-accent-500/30 transition-colors"
+            >
+              <Edit3 className="w-4 h-4" />
+              编辑
+            </button>
+          )}
+        </div>
+
+        {isEditingNotes ? (
+          <div className="space-y-4">
+            <textarea
+              value={notesDraft}
+              onChange={(e) => setNotesDraft(e.target.value)}
+              placeholder="输入归档备注..."
+              className="w-full h-32 px-4 py-3 rounded-lg bg-primary-800/50 border border-primary-700 text-white placeholder-gray-500 focus:outline-none focus:border-accent-500 resize-none"
+              autoFocus
+            />
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setIsEditingNotes(false)}
+                className="flex items-center gap-1 px-4 py-2 rounded-lg bg-primary-700/50 text-gray-300 hover:bg-primary-700 transition-colors"
+              >
+                <X className="w-4 h-4" />
+                取消
+              </button>
+              <button
+                onClick={() => {
+                  setWorkNotes(decodedWorkName, notesDraft);
+                  setIsEditingNotes(false);
+                }}
+                className="flex items-center gap-1 px-4 py-2 rounded-lg btn-primary text-primary-900 font-medium"
+              >
+                <Check className="w-4 h-4" />
+                保存
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div>
+            {workData.notes ? (
+              <p className="text-gray-300 whitespace-pre-wrap">{workData.notes}</p>
+            ) : (
+              <p className="text-gray-500 italic">暂无备注，点击编辑按钮添加</p>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="glass rounded-xl overflow-hidden">

@@ -15,6 +15,7 @@ import {
   XCircle,
   ArrowRight,
   Save,
+  BookMarked,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { Modal } from '../components/Modal';
@@ -25,6 +26,7 @@ interface SnapshotData {
   staff: ReturnType<typeof useStore.getState>['staff'];
   scanTasks: ReturnType<typeof useStore.getState>['scanTasks'];
   wishItems: ReturnType<typeof useStore.getState>['wishItems'];
+  workInfos: ReturnType<typeof useStore.getState>['workInfos'];
 }
 
 interface Snapshot {
@@ -73,6 +75,7 @@ interface DiffSummary {
   wishItemsRemoved: number;
   wishItemsChanged: number;
   scanTasksChanged: number;
+  workInfosChanged: number;
 }
 
 function countChangedById<T extends { id: string }>(
@@ -135,6 +138,18 @@ function computeDiff(current: SnapshotData, snapshot: SnapshotData): DiffSummary
     }
   });
 
+  const currentWorkInfoKeys = Object.keys(current.workInfos || {});
+  const snapshotWorkInfoKeys = Object.keys(snapshot.workInfos || {});
+  let workInfosChanged = 0;
+  snapshotWorkInfoKeys.forEach((k) => { if (!currentWorkInfoKeys.includes(k)) workInfosChanged++; });
+  currentWorkInfoKeys.forEach((k) => { if (!snapshotWorkInfoKeys.includes(k)) workInfosChanged++; });
+  const commonWorkInfoKeys = currentWorkInfoKeys.filter((k) => snapshotWorkInfoKeys.includes(k));
+  commonWorkInfoKeys.forEach((k) => {
+    if (JSON.stringify(current.workInfos?.[k]) !== JSON.stringify(snapshot.workInfos?.[k])) {
+      workInfosChanged++;
+    }
+  });
+
   return {
     materialsAdded,
     materialsRemoved,
@@ -149,6 +164,7 @@ function computeDiff(current: SnapshotData, snapshot: SnapshotData): DiffSummary
     wishItemsRemoved,
     wishItemsChanged,
     scanTasksChanged,
+    workInfosChanged,
   };
 }
 
@@ -158,6 +174,7 @@ export function BackupCenter() {
   const staff = useStore((s) => s.staff);
   const scanTasks = useStore((s) => s.scanTasks);
   const wishItems = useStore((s) => s.wishItems);
+  const workInfos = useStore((s) => s.workInfos);
 
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [snapshotLabel, setSnapshotLabel] = useState('');
@@ -185,6 +202,7 @@ export function BackupCenter() {
         staff: JSON.parse(JSON.stringify(staff)),
         scanTasks: JSON.parse(JSON.stringify(scanTasks)),
         wishItems: JSON.parse(JSON.stringify(wishItems)),
+        workInfos: JSON.parse(JSON.stringify(workInfos)),
       },
     };
     const updated = [newSnapshot, ...snapshots];
@@ -192,7 +210,7 @@ export function BackupCenter() {
     setSnapshots(updated);
     setSnapshotLabel('');
     setShowCreateInput(false);
-  }, [snapshotLabel, snapshots, materials, characters, staff, scanTasks, wishItems]);
+  }, [snapshotLabel, snapshots, materials, characters, staff, scanTasks, wishItems, workInfos]);
 
   const handleDeleteSnapshot = useCallback((id: string) => {
     const updated = snapshots.filter((s) => s.id !== id);
@@ -209,10 +227,11 @@ export function BackupCenter() {
       staff,
       scanTasks,
       wishItems,
+      workInfos,
     };
     const diff = computeDiff(current, snapshot.data);
     setDiffModal({ snapshot, diff });
-  }, [materials, characters, staff, scanTasks, wishItems]);
+  }, [materials, characters, staff, scanTasks, wishItems, workInfos]);
 
   const handleConfirmRestore = useCallback(() => {
     if (!diffModal) return;
@@ -223,6 +242,7 @@ export function BackupCenter() {
       staff: data.staff,
       scanTasks: data.scanTasks,
       wishItems: data.wishItems,
+      workInfos: data.workInfos,
     });
     setDiffModal(null);
   }, [diffModal]);
@@ -240,7 +260,8 @@ export function BackupCenter() {
       diffModal.diff.wishItemsAdded > 0 ||
       diffModal.diff.wishItemsRemoved > 0 ||
       diffModal.diff.wishItemsChanged > 0 ||
-      diffModal.diff.scanTasksChanged > 0
+      diffModal.diff.scanTasksChanged > 0 ||
+      diffModal.diff.workInfosChanged > 0
     : false;
 
   return (
@@ -395,7 +416,7 @@ export function BackupCenter() {
                 {isExpanded && (
                   <div className="px-4 pb-4 border-t border-accent-500/10">
                     <div className="pt-4 space-y-4">
-                      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
                         <div className="px-3 py-2 rounded-lg bg-primary-800/50 border border-accent-500/10">
                           <p className="text-xs text-gray-500">资料</p>
                           <p className="text-lg font-bold text-white">{snapshot.data.materials.length}</p>
@@ -415,6 +436,10 @@ export function BackupCenter() {
                         <div className="px-3 py-2 rounded-lg bg-primary-800/50 border border-accent-500/10">
                           <p className="text-xs text-gray-500">扫描任务</p>
                           <p className="text-lg font-bold text-white">{Object.keys(snapshot.data.scanTasks).length}</p>
+                        </div>
+                        <div className="px-3 py-2 rounded-lg bg-primary-800/50 border border-accent-500/10">
+                          <p className="text-xs text-gray-500">作品信息</p>
+                          <p className="text-lg font-bold text-white">{Object.keys(snapshot.data.workInfos || {}).length}</p>
                         </div>
                       </div>
 
@@ -525,6 +550,12 @@ export function BackupCenter() {
                 <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-primary-800/30 border border-accent-500/10">
                   <Database className="w-4 h-4 text-purple-400" />
                   <span className="text-sm text-gray-300">扫描任务有 {diffModal.diff.scanTasksChanged} 项变更</span>
+                </div>
+              )}
+              {diffModal.diff.workInfosChanged > 0 && (
+                <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-primary-800/30 border border-accent-500/10">
+                  <BookMarked className="w-4 h-4 text-yellow-400" />
+                  <span className="text-sm text-gray-300">作品信息有 {diffModal.diff.workInfosChanged} 项变更</span>
                 </div>
               )}
             </div>

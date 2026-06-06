@@ -238,3 +238,10 @@ export interface ImportResult {
   skippedByUser: number;
   skippedByError: number;
 }
+
+export interface WorkInfo {
+  workName: string;
+  isFavorite: boolean;
+  notes: string;
+  updatedAt: string;
+}

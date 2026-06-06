@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { BookMarked, Library, Users, ScanLine, Clock, ChevronRight } from 'lucide-react';
+import { BookMarked, Library, Users, ScanLine, Clock, ChevronRight, Star } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { Material } from '../types';
 
@@ -18,12 +18,16 @@ interface WorkStats {
   scanProgress: number;
   latestMaterial: Material | null;
   latestUpdate: string;
+  isFavorite: boolean;
+  notes: string;
 }
 
 export function WorkArchive() {
   const materials = useStore((state) => state.materials);
   const characters = useStore((state) => state.characters);
   const staff = useStore((state) => state.staff);
+  const workInfos = useStore((state) => state.workInfos);
+  const setWorkFavorite = useStore((state) => state.setWorkFavorite);
 
   const workStats = useMemo(() => {
     const workMap = new Map<string, Material[]>();
@@ -93,13 +97,17 @@ export function WorkArchive() {
         scanProgress,
         latestMaterial: latestMaterial || null,
         latestUpdate: latestMaterial?.updatedAt || '',
+        isFavorite: workInfos[workName]?.isFavorite || false,
+        notes: workInfos[workName]?.notes || '',
       });
     });
 
-    return stats.sort((a, b) =>
-      new Date(b.latestUpdate).getTime() - new Date(a.latestUpdate).getTime()
-    );
-  }, [materials, staff]);
+    return stats.sort((a, b) => {
+      if (a.isFavorite && !b.isFavorite) return -1;
+      if (!a.isFavorite && b.isFavorite) return 1;
+      return new Date(b.latestUpdate).getTime() - new Date(a.latestUpdate).getTime();
+    });
+  }, [materials, staff, workInfos]);
 
   const getScanProgressColor = (progress: number) => {
     if (progress === 100) return 'bg-green-500';
@@ -215,8 +223,13 @@ export function WorkArchive() {
             <Link
               key={work.name}
               to={`/works/${encodeURIComponent(work.name)}`}
-              className="glass rounded-xl overflow-hidden card-hover group animate-fade-in"
+              className={`glass rounded-xl overflow-hidden card-hover group animate-fade-in relative ${work.isFavorite ? 'ring-2 ring-yellow-500/50' : ''}`}
             >
+              {work.isFavorite && (
+                <div className="absolute top-3 right-3 z-10">
+                  <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
+                </div>
+              )}
               <div className="p-6">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
@@ -227,10 +240,29 @@ export function WorkArchive() {
                       <h3 className="font-serif text-lg font-bold text-white group-hover:text-accent-400 transition-colors">
                         {work.name}
                       </h3>
+                      {work.isFavorite && (
+                        <span className="text-xs text-yellow-400 font-medium">重点作品</span>
+                      )}
                     </div>
                   </div>
-                  <ChevronRight className="w-5 h-5 text-gray-500 group-hover:text-accent-400 group-hover:translate-x-1 transition-all" />
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setWorkFavorite(work.name, !work.isFavorite);
+                    }}
+                    className={`p-1.5 rounded-lg transition-colors ${work.isFavorite ? 'text-yellow-400 hover:bg-yellow-500/20' : 'text-gray-500 hover:text-yellow-400 hover:bg-yellow-500/10'}`}
+                    title={work.isFavorite ? '取消重点' : '设为重点'}
+                  >
+                    <Star className={`w-4 h-4 ${work.isFavorite ? 'fill-yellow-400' : ''}`} />
+                  </button>
                 </div>
+
+                {work.notes && (
+                  <div className="mb-4 p-3 rounded-lg bg-primary-800/50 border-l-2 border-accent-500">
+                    <p className="text-sm text-gray-300 line-clamp-2">{work.notes}</p>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-3 gap-4 mb-4">
                   <div className="text-center">
