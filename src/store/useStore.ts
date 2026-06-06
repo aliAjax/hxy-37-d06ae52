@@ -59,6 +59,7 @@ interface StoreState {
   getScanTask: (materialId: string) => ScanTask | undefined;
   deleteScanTask: (materialId: string) => void;
   getAllScanTasks: () => ScanTask[];
+  batchSetScanTasks: (materialIds: string[], task: Omit<ScanTask, 'materialId' | 'createdAt' | 'updatedAt'>) => { created: number; updated: number; };
 
   addWishItem: (item: Omit<WishItem, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateWishItem: (id: string, updates: Partial<WishItem>) => void;
@@ -396,6 +397,31 @@ export const useStore = create<StoreState>()(
 
       getAllScanTasks: () => {
         return Object.values(get().scanTasks);
+      },
+
+      batchSetScanTasks: (materialIds, task) => {
+        const now = new Date().toISOString();
+        let created = 0;
+        let updated = 0;
+        set((state) => {
+          const newScanTasks = { ...state.scanTasks };
+          materialIds.forEach((id) => {
+            const existing = newScanTasks[id];
+            if (existing) {
+              updated++;
+            } else {
+              created++;
+            }
+            newScanTasks[id] = {
+              ...task,
+              materialId: id,
+              createdAt: existing?.createdAt || now,
+              updatedAt: now,
+            };
+          });
+          return { scanTasks: newScanTasks };
+        });
+        return { created, updated };
       },
 
       addWishItem: (item) => {
