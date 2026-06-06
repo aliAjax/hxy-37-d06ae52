@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Filter,
   Calendar,
@@ -61,6 +61,9 @@ export function ScanTasks() {
     plannedDate: '',
     notes: '',
   });
+  const batchPriorityRef = useRef<HTMLSelectElement>(null);
+  const batchDateRef = useRef<HTMLInputElement>(null);
+  const batchNotesRef = useRef<HTMLTextAreaElement>(null);
 
   const works = useMemo(() => {
     return Array.from(new Set(materials.map((m) => m.work))).filter(Boolean).sort();
@@ -171,7 +174,7 @@ export function ScanTasks() {
     if (selectedTasks.length === 0) return;
 
     const tasks = selectedTasks.filter((t) => t.task).map((t) => t.task!);
-    
+
     let initialPriority: ScanPriority = 'medium';
     let initialDate = '';
     let initialNotes = '';
@@ -204,14 +207,21 @@ export function ScanTasks() {
     setBatchModalOpen(true);
   };
 
+  const getCurrentBatchForm = () => ({
+    priority: (batchPriorityRef.current?.value || batchForm.priority) as ScanPriority,
+    plannedDate: batchDateRef.current?.value || batchForm.plannedDate,
+    notes: batchNotesRef.current?.value ?? batchForm.notes,
+  });
+
   const handleBatchPreview = () => {
+    setBatchForm(getCurrentBatchForm());
     setBatchModalOpen(false);
     setConfirmModalOpen(true);
   };
 
   const handleBatchConfirm = () => {
     const ids = selectedTasks.map((t) => t.material.id);
-    batchSetScanTasks(ids, batchForm);
+    batchSetScanTasks(ids, getCurrentBatchForm());
     setSelectedIds(new Set());
     setConfirmModalOpen(false);
   };
@@ -632,6 +642,7 @@ export function ScanTasks() {
           <div>
             <label className="block text-sm font-medium text-white mb-2">优先级</label>
             <select
+              ref={batchPriorityRef}
               value={batchForm.priority}
               onChange={(e) => setBatchForm({ ...batchForm, priority: e.target.value as ScanPriority })}
               className="w-full px-4 py-3 rounded-lg bg-primary-800/50 border border-accent-500/20 text-white input-focus"
@@ -649,9 +660,11 @@ export function ScanTasks() {
           <div>
             <label className="block text-sm font-medium text-white mb-2">计划日期</label>
             <input
+              ref={batchDateRef}
               type="date"
               value={batchForm.plannedDate}
               onChange={(e) => setBatchForm({ ...batchForm, plannedDate: e.target.value })}
+              onInput={(e) => setBatchForm({ ...batchForm, plannedDate: e.currentTarget.value })}
               className="w-full px-4 py-3 rounded-lg bg-primary-800/50 border border-accent-500/20 text-white input-focus"
             />
           </div>
@@ -659,8 +672,10 @@ export function ScanTasks() {
           <div>
             <label className="block text-sm font-medium text-white mb-2">备注</label>
             <textarea
+              ref={batchNotesRef}
               value={batchForm.notes}
               onChange={(e) => setBatchForm({ ...batchForm, notes: e.target.value })}
+              onInput={(e) => setBatchForm({ ...batchForm, notes: e.currentTarget.value })}
               placeholder="添加扫描任务备注..."
               className="w-full px-4 py-3 rounded-lg bg-primary-800/50 border border-accent-500/20 text-white input-focus resize-none h-24"
             />

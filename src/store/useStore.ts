@@ -546,7 +546,7 @@ export const useStore = create<StoreState>()(
       version: 2,
       migrate: (persistedState: unknown, version: number) => {
         const state = persistedState as Record<string, unknown>;
-        
+
         if (version < 2 && state.scanTasks && typeof state.scanTasks === 'object') {
           const tasks = state.scanTasks as Record<string, Record<string, unknown>>;
           Object.keys(tasks).forEach((id) => {
@@ -559,7 +559,7 @@ export const useStore = create<StoreState>()(
             }
           });
         }
-        
+
         return state as unknown as StoreState;
       },
     }
