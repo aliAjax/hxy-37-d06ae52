@@ -1,10 +1,11 @@
 import { useState, useMemo } from 'react';
-import { Hash, Plus, Edit2, Trash2, Search, Filter, X, ChevronDown, ChevronRight } from 'lucide-react';
+import { Hash, Plus, Edit2, Trash2, Search, Filter, X, ChevronDown, ChevronRight, BookOpen } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { PageReference, MaterialTypeLabels } from '../types';
 import { TagSelector } from '../components/TagSelector';
 import { FormInput, FormTextarea } from '../components/FormInput';
 import { Modal } from '../components/Modal';
+import { MaterialDetail } from '../components/MaterialDetail';
 
 interface FilterState {
   work: string;
@@ -40,6 +41,11 @@ export function PageReferenceBrowser() {
   const [expandedMaterials, setExpandedMaterials] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<EditingState | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ materialId: string; refId: string } | null>(null);
+  const [viewingMaterialId, setViewingMaterialId] = useState<string | null>(null);
+
+  const viewingMaterial = useStore((state) =>
+    viewingMaterialId ? state.materials.find((m) => m.id === viewingMaterialId) || null : null
+  );
 
   const works = useMemo(() => {
     const workSet = new Set(materials.map((m) => m.work));
@@ -130,10 +136,23 @@ export function PageReferenceBrowser() {
   const getStaffNames = (ids: string[]) =>
     ids.map((id) => staff.find((s) => s.id === id)?.name).filter(Boolean);
 
+  const getEditingMaterial = () => {
+    if (!editing) return null;
+    return materials.find((m) => m.id === editing.materialId) || null;
+  };
+
+  const isPageNumberValid = () => {
+    const material = getEditingMaterial();
+    if (!material || !editing?.reference) return true;
+    const pageNum = editing.reference.pageNumber;
+    return pageNum >= material.pageStart && pageNum <= material.pageEnd;
+  };
+
   const handleAddReference = (materialId: string) => {
+    const material = materials.find((m) => m.id === materialId);
     const newRef: PageReference = {
       id: Date.now().toString(),
-      pageNumber: 1,
+      pageNumber: material?.pageStart || 1,
       description: '',
       characterIds: [],
       staffIds: [],
@@ -151,6 +170,8 @@ export function PageReferenceBrowser() {
     const material = materials.find((m) => m.id === editing.materialId);
     if (!material) return;
 
+    if (!isPageNumberValid()) return;
+
     const existingIndex = material.pageReferences.findIndex((r) => r.id === editing.reference!.id);
     let newPageReferences: PageReference[];
 
@@ -160,6 +181,8 @@ export function PageReferenceBrowser() {
     } else {
       newPageReferences = [...material.pageReferences, editing.reference];
     }
+
+    newPageReferences.sort((a, b) => a.pageNumber - b.pageNumber);
 
     updateMaterial(editing.materialId, { pageReferences: newPageReferences });
     setEditing(null);
@@ -208,6 +231,8 @@ export function PageReferenceBrowser() {
     magazine: '📰',
     special: '✨',
   };
+
+  const editingMaterial = getEditingMaterial();
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -365,7 +390,18 @@ export function PageReferenceBrowser() {
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setViewingMaterialId(material.id);
+                      }}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary-700/50 text-gray-300 text-sm hover:bg-primary-700 hover:text-white transition-colors"
+                      title="查看资料详情"
+                    >
+                      <BookOpen className="w-4 h-4" />
+                      查看资料
+                    </button>
                     <span className="px-3 py-1 rounded-full bg-primary-700/50 text-gray-300 text-sm">
                       {material.matchingRefs.length} 条标注
                     </span>
@@ -436,7 +472,7 @@ export function PageReferenceBrowser() {
                                   <button
                                     onClick={() =>
                                       setDeleteConfirm({ materialId: material.id, refId: ref.id })
-                                  }
+                                    }
                                     className="p-2 rounded-lg hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition-colors"
                                   >
                                     <Trash2 className="w-4 h-4" />
@@ -491,7 +527,7 @@ export function PageReferenceBrowser() {
           : '新增页码标注'}
         size="lg"
       >
-        {editing && editing.reference && (
+        {editing && editing.reference && editingMaterial && (
           <div className="space-y-6">
             <div className="grid grid-cols-2 gap-4">
               <FormInput
@@ -503,12 +539,21 @@ export function PageReferenceBrowser() {
                     ...editing,
                     reference: {
                       ...editing.reference!,
-                      pageNumber: parseInt(e.target.value) || 1,
+                      pageNumber: parseInt(e.target.value) || editingMaterial.pageStart,
                     },
                   })
                 }
+                error={
+                  !isPageNumberValid()
+                    ? `页码必须在 ${editingMaterial.pageStart} - ${editingMaterial.pageEnd} 之间`
+                    : undefined
+                }
               />
-              <div />
+              <div className="flex items-end">
+                <span className="text-sm text-gray-400">
+                  有效范围：P.{editingMaterial.pageStart} - P.{editingMaterial.pageEnd}
+                </span>
+              </div>
             </div>
 
             <FormTextarea
@@ -571,7 +616,12 @@ export function PageReferenceBrowser() {
               <button
                 type="button"
                 onClick={handleSaveReference}
-                className="px-6 py-3 rounded-lg btn-primary text-primary-900 font-medium"
+                disabled={!isPageNumberValid()}
+                className={`px-6 py-3 rounded-lg font-medium transition-colors ${
+                  isPageNumberValid()
+                    ? 'btn-primary text-primary-900'
+                    : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                }`}
               >
                 保存
               </button>
@@ -607,6 +657,21 @@ export function PageReferenceBrowser() {
             </button>
           </div>
         </div>
+      </Modal>
+
+      <Modal
+        isOpen={!!viewingMaterial}
+        onClose={() => setViewingMaterialId(null)}
+        title="资料详情"
+        size="lg"
+      >
+        {viewingMaterial && (
+          <MaterialDetail
+            material={viewingMaterial}
+            onMaterialChange={() => {
+            }}
+          />
+        )}
       </Modal>
     </div>
   );

@@ -15,6 +15,7 @@ export function MaterialList() {
   const addMaterial = useStore((state) => state.addMaterial);
   const updateMaterial = useStore((state) => state.updateMaterial);
   const deleteMaterial = useStore((state) => state.deleteMaterial);
+  const getMaterial = useStore((state) => state.getMaterial);
 
   const [filters, setFilters] = useState<SearchFilters>({});
   const [showAddModal, setShowAddModal] = useState(false);
@@ -368,7 +369,15 @@ export function MaterialList() {
         title="资料详情"
         size="lg"
       >
-        {viewingMaterial && <MaterialDetail material={viewingMaterial} />}
+        {viewingMaterial && (
+          <MaterialDetail
+            material={viewingMaterial}
+            onMaterialChange={() => {
+              const fresh = getMaterial(viewingMaterial.id);
+              if (fresh) setViewingMaterial(fresh);
+            }}
+          />
+        )}
       </Modal>
 
       <Modal
