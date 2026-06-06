@@ -1,12 +1,12 @@
 import Papa from 'papaparse';
-import { 
-  Material, 
-  MaterialType, 
-  ScanStatus, 
-  MaterialTypeLabels, 
-  ScanStatusLabels, 
-  CSVRow, 
-  Character, 
+import {
+  Material,
+  MaterialType,
+  ScanStatus,
+  MaterialTypeLabels,
+  ScanStatusLabels,
+  CSVRow,
+  Character,
   Staff,
   FieldMapping,
   RowValidationResult,
@@ -16,8 +16,8 @@ import {
   CharacterPreview,
   StaffPreview,
 } from '../types';
-import { 
-  findSimilarMaterials, 
+import {
+  findSimilarMaterials,
   DEFAULT_DUPLICATE_RULES,
   DuplicateCheckRules,
   SimilarMaterial,

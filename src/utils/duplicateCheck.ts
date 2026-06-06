@@ -62,27 +62,27 @@ export interface FieldDiff {
 
 const calculateStringSimilarity = (str1: string, str2: string): number => {
   if (!str1 || !str2) return 0;
-  
+
   const s1 = str1.toLowerCase().trim();
   const s2 = str2.toLowerCase().trim();
-  
+
   if (s1 === s2) return 100;
-  
+
   if (s1.includes(s2) || s2.includes(s1)) {
     const shorter = Math.min(s1.length, s2.length);
     const longer = Math.max(s1.length, s2.length);
     return Math.round((shorter / longer) * 80);
   }
-  
+
   const words1 = new Set(s1.split(/\s+/));
   const words2 = new Set(s2.split(/\s+/));
   const commonWords = [...words1].filter(word => words2.has(word));
-  
+
   if (commonWords.length > 0) {
     const totalWords = Math.max(words1.size, words2.size);
     return Math.round((commonWords.length / totalWords) * 60);
   }
-  
+
   return 0;
 };
 
@@ -91,15 +91,15 @@ const calculateCharacterOverlap = (
   chars2: string[]
 ): { count: number; ratio: number } => {
   if (!chars1.length || !chars2.length) return { count: 0, ratio: 0 };
-  
+
   const set1 = new Set(chars1);
   const set2 = new Set(chars2);
   let commonCount = 0;
-  
+
   set1.forEach((c) => {
     if (set2.has(c)) commonCount++;
   });
-  
+
   const totalCount = Math.max(set1.size, set2.size);
   return {
     count: commonCount,
@@ -115,23 +115,23 @@ export const calculateSimilarity = (
   const { weights, thresholds } = rules;
   const reasons: string[] = [];
   let score = 0;
-  
+
   const titleSimilarity = calculateStringSimilarity(materialA.title, materialB.title);
   if (titleSimilarity >= thresholds.titleSimilarityMin) {
     reasons.push(`标题相似 (${titleSimilarity}%)`);
     score += (titleSimilarity / 100) * weights.titleSimilarity;
   }
-  
+
   if (materialA.work && materialB.work && materialA.work === materialB.work) {
     reasons.push('作品相同');
     score += weights.workSame;
   }
-  
+
   if (materialA.publishDate && materialB.publishDate && materialA.publishDate === materialB.publishDate) {
     reasons.push('出版日期相同');
     score += weights.publishDateSame;
   }
-  
+
   if (
     materialA.pageCount &&
     materialB.pageCount &&
@@ -140,7 +140,7 @@ export const calculateSimilarity = (
     reasons.push(`页数接近 (±${thresholds.pageCountMaxDiff}页)`);
     score += weights.pageCountClose;
   }
-  
+
   const charOverlap = calculateCharacterOverlap(
     materialA.characterIds || [],
     materialB.characterIds || []
@@ -149,7 +149,7 @@ export const calculateSimilarity = (
     reasons.push(`关联角色重合 (${charOverlap.count}个)`);
     score += charOverlap.ratio * weights.characterOverlap;
   }
-  
+
   return { score: Math.round(score), reasons };
 };
 
@@ -164,12 +164,12 @@ export const findDuplicatePairs = (
     for (let j = i + 1; j < materials.length; j++) {
       const m1 = materials[i];
       const m2 = materials[j];
-      
+
       const pairKey = `${m1.id}-${m2.id}`;
       if (processedPairs.has(pairKey)) continue;
-      
+
       const { score, reasons } = calculateSimilarity(m1, m2, rules);
-      
+
       if (score >= rules.thresholds.overallMinScore && reasons.length >= rules.thresholds.minMatchReasons) {
         processedPairs.add(pairKey);
         pairs.push({
@@ -196,7 +196,7 @@ export const findSimilarMaterials = (
 
   existingMaterials.forEach((existing) => {
     const { score, reasons } = calculateSimilarity(targetMaterial, existing, rules);
-    
+
     if (score >= rules.thresholds.overallMinScore && reasons.length >= rules.thresholds.minMatchReasons) {
       similarMaterials.push({
         material: existing,
@@ -241,7 +241,7 @@ export const getFieldDifferences = (materialA: Material, materialB: Material): F
   return fields.map(({ key, label, format }) => {
     let valueA: string | number;
     let valueB: string | number;
-    
+
     if (format) {
       valueA = format(materialA[key]) as string | number;
       valueB = format(materialB[key]) as string | number;
@@ -249,9 +249,9 @@ export const getFieldDifferences = (materialA: Material, materialB: Material): F
       valueA = String(materialA[key] || '-');
       valueB = String(materialB[key] || '-');
     }
-    
+
     const isDifferent = String(valueA) !== String(valueB);
-    
+
     return {
       field: key,
       label,

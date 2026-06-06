@@ -14,7 +14,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { findDuplicatePairs, getFieldDifferences, DuplicatePair, FieldDiff, DuplicateCheckRules, DEFAULT_DUPLICATE_RULES } from '../utils/duplicateCheck';
+import { findDuplicatePairs, getFieldDifferences, DuplicatePair, FieldDiff, DuplicateCheckRules } from '../utils/duplicateCheck';
 import { Material, MaterialTypeLabels, ScanStatusLabels } from '../types';
 import { Modal } from '../components/Modal';
 
