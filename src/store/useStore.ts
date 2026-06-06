@@ -369,18 +369,20 @@ export const useStore = create<StoreState>()(
 
       setScanTask: (materialId, task) => {
         const now = new Date().toISOString();
-        const existing = get().scanTasks[materialId];
-        set((state) => ({
-          scanTasks: {
-            ...state.scanTasks,
-            [materialId]: {
-              ...task,
-              materialId,
-              createdAt: existing?.createdAt || now,
-              updatedAt: now,
+        set((state) => {
+          const existing = state.scanTasks[materialId];
+          return {
+            scanTasks: {
+              ...state.scanTasks,
+              [materialId]: {
+                ...task,
+                materialId,
+                createdAt: existing?.createdAt || now,
+                updatedAt: now,
+              },
             },
-          },
-        }));
+          };
+        });
       },
 
       getScanTask: (materialId) => {
