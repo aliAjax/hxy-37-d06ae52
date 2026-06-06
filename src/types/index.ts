@@ -232,3 +232,9 @@ export interface PreflightResult {
   csvHeaders: string[];
   rawData: CSVRow[];
 }
+
+export interface ImportResult {
+  success: number;
+  skippedByUser: number;
+  skippedByError: number;
+}

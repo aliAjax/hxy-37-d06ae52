@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Upload, Download, FileText, CheckCircle, Trash2, ArrowLeft } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { parseCSV, downloadCSV } from '../utils/csv';
-import { CSVRow, RowValidationResult } from '../types';
+import { CSVRow, RowValidationResult, ImportResult } from '../types';
 import { ImportPreflight } from '../components/ImportPreflight';
 
 export function ImportExport() {
@@ -15,10 +15,7 @@ export function ImportExport() {
 
   const [rawData, setRawData] = useState<CSVRow[] | null>(null);
   const [showPreflight, setShowPreflight] = useState(false);
-  const [importResult, setImportResult] = useState<{
-    success: number;
-    skipped: number;
-  } | null>(null);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -39,8 +36,8 @@ export function ImportExport() {
     }
   };
 
-  const handlePreflightConfirm = (validRows: RowValidationResult[]) => {
-    const result = importFromPreflight(validRows);
+  const handlePreflightConfirm = (validRows: RowValidationResult[], stats: { skippedByUser: number; skippedByError: number }) => {
+    const result = importFromPreflight(validRows, stats);
     setImportResult(result);
     setShowPreflight(false);
     setRawData(null);
@@ -149,15 +146,28 @@ export function ImportExport() {
             </div>
 
             {importResult && (
-              <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/30">
+              <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/30 space-y-3">
                 <div className="flex items-center gap-3">
                   <CheckCircle className="w-6 h-6 text-green-400" />
                   <div>
                     <h3 className="font-medium text-white">导入完成</h3>
                     <p className="text-sm text-gray-400">
-                      成功导入 {importResult.success} 条资料
-                      {importResult.skipped > 0 && `，跳过 ${importResult.skipped} 条`}
+                      共处理 {importResult.success + importResult.skippedByUser + importResult.skippedByError} 条数据
                     </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-sm">
+                  <div className="p-2 rounded bg-green-500/10 border border-green-500/20 text-center">
+                    <div className="text-green-400 font-medium text-lg">{importResult.success}</div>
+                    <div className="text-green-300 text-xs">成功导入</div>
+                  </div>
+                  <div className="p-2 rounded bg-yellow-500/10 border border-yellow-500/20 text-center">
+                    <div className="text-yellow-400 font-medium text-lg">{importResult.skippedByUser}</div>
+                    <div className="text-yellow-300 text-xs">主动跳过</div>
+                  </div>
+                  <div className="p-2 rounded bg-red-500/10 border border-red-500/20 text-center">
+                    <div className="text-red-400 font-medium text-lg">{importResult.skippedByError}</div>
+                    <div className="text-red-300 text-xs">错误跳过</div>
                   </div>
                 </div>
               </div>

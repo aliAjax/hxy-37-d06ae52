@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Material, Character, Staff, SearchFilters, CSVRow, MaterialType, ScanStatus, ScanTask, WishItem, WishPriority, RowValidationResult } from '../types';
+import { Material, Character, Staff, SearchFilters, CSVRow, MaterialType, ScanStatus, ScanTask, WishItem, WishPriority, RowValidationResult, ImportResult } from '../types';
 import { sampleMaterials, sampleCharacters, sampleStaff } from '../data/sampleData';
 import { searchMaterials, generateId } from '../utils/search';
 import { validateMaterialData, exportToCSV as exportToCSVUtil } from '../utils/csv';
@@ -39,7 +39,7 @@ interface StoreState {
   getOrCreateStaff: (name: string, role: string) => Staff;
 
   importFromCSV: (data: CSVRow[]) => { success: number; failed: number; errors: string[] };
-  importFromPreflight: (validRows: RowValidationResult[]) => { success: number; skipped: number };
+  importFromPreflight: (validRows: RowValidationResult[], stats?: { skippedByUser: number; skippedByError: number }) => ImportResult;
   exportToCSV: (materialIds?: string[]) => string;
 
   initializeWithSampleData: () => void;
@@ -260,7 +260,7 @@ export const useStore = create<StoreState>()(
         return { success, failed, errors };
       },
 
-      importFromPreflight: (validRows) => {
+      importFromPreflight: (validRows, stats) => {
         let success = 0;
         let skipped = 0;
         const newMaterials: Material[] = [];
@@ -299,7 +299,11 @@ export const useStore = create<StoreState>()(
           materials: [...newMaterials, ...state.materials],
         }));
 
-        return { success, skipped };
+        return {
+          success,
+          skippedByUser: stats?.skippedByUser ?? skipped,
+          skippedByError: stats?.skippedByError ?? 0,
+        };
       },
 
       exportToCSV: (materialIds) => {

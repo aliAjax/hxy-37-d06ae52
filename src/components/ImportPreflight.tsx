@@ -40,7 +40,7 @@ interface ImportPreflightProps {
   existingMaterials: Material[];
   existingCharacters: Character[];
   existingStaff: Staff[];
-  onConfirm: (validRows: RowValidationResult[]) => void;
+  onConfirm: (validRows: RowValidationResult[], stats: { skippedByUser: number; skippedByError: number }) => void;
   onCancel: () => void;
 }
 
@@ -71,6 +71,7 @@ export function ImportPreflight({
   const [activeTab, setActiveTab] = useState<TabType>('mapping');
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
   const [statusFilter, setStatusFilter] = useState<ValidationStatus | 'all'>('all');
+  const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
 
   const handleMappingChange = (csvHeader: string, targetField: string) => {
     setFieldMappings((prev) =>
@@ -89,6 +90,34 @@ export function ImportPreflight({
     );
     setPreflightResult(result);
     setActiveTab('validation');
+    const selectableIndices = result.rowResults
+      .filter((r) => r.status !== 'error')
+      .map((r) => r.rowIndex);
+    setSelectedRows(new Set(selectableIndices));
+  };
+
+  const toggleRowSelect = (rowIndex: number) => {
+    setSelectedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(rowIndex)) {
+        next.delete(rowIndex);
+      } else {
+        next.add(rowIndex);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (!preflightResult) return;
+    const selectableRows = preflightResult.rowResults.filter((r) => r.status !== 'error');
+    const allSelected = selectableRows.every((r) => selectedRows.has(r.rowIndex));
+
+    if (allSelected) {
+      setSelectedRows(new Set());
+    } else {
+      setSelectedRows(new Set(selectableRows.map((r) => r.rowIndex)));
+    }
   };
 
   const toggleRowExpand = (rowIndex: number) => {
@@ -112,10 +141,14 @@ export function ImportPreflight({
 
   const handleConfirm = () => {
     if (!preflightResult) return;
-    const validRows = preflightResult.rowResults.filter(
-      (r) => r.status === 'success' || r.status === 'warning' || r.status === 'duplicate'
+    const selectedRowResults = preflightResult.rowResults.filter(
+      (r) => selectedRows.has(r.rowIndex) && r.status !== 'error'
     );
-    onConfirm(validRows);
+    const skippedByUser = preflightResult.rowResults.filter(
+      (r) => r.status !== 'error' && !selectedRows.has(r.rowIndex)
+    ).length;
+    const skippedByError = preflightResult.summary.errorRows;
+    onConfirm(selectedRowResults, { skippedByUser, skippedByError });
   };
 
   const filteredRowResults = useMemo(() => {
@@ -327,6 +360,14 @@ export function ImportPreflight({
             <table className="w-full text-sm">
               <thead className="bg-primary-800/50 sticky top-0">
                 <tr>
+                  <th className="px-4 py-3 text-left text-gray-300 w-10">
+                    <input
+                      type="checkbox"
+                      checked={preflightResult ? preflightResult.rowResults.filter((r) => r.status !== 'error').every((r) => selectedRows.has(r.rowIndex)) : false}
+                      onChange={toggleSelectAll}
+                      className="w-4 h-4 rounded border-accent-500/30 bg-primary-700/50 text-accent-500 focus:ring-accent-500"
+                    />
+                  </th>
                   <th className="px-4 py-3 text-left text-gray-300 w-12"></th>
                   <th className="px-4 py-3 text-left text-gray-300 w-16">行号</th>
                   <th className="px-4 py-3 text-left text-gray-300 w-24">状态</th>
@@ -341,6 +382,8 @@ export function ImportPreflight({
                   const StatusIcon = config.icon;
                   const isExpanded = expandedRows.has(row.rowIndex);
                   const hasIssues = row.errors.length > 0 || row.warnings.length > 0;
+                  const isSelectable = row.status !== 'error';
+                  const isSelected = selectedRows.has(row.rowIndex);
                   return (
                     <>
                       <tr
@@ -350,6 +393,15 @@ export function ImportPreflight({
                         }`}
                         onClick={() => hasIssues && toggleRowExpand(row.rowIndex)}
                       >
+                        <td className="px-4 py-2" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            disabled={!isSelectable}
+                            onChange={() => toggleRowSelect(row.rowIndex)}
+                            className="w-4 h-4 rounded border-accent-500/30 bg-primary-700/50 text-accent-500 focus:ring-accent-500 disabled:opacity-30 disabled:cursor-not-allowed"
+                          />
+                        </td>
                         <td className="px-4 py-2">
                           {hasIssues && (
                             <span className="text-gray-400">
@@ -391,7 +443,7 @@ export function ImportPreflight({
                       </tr>
                       {isExpanded && hasIssues && (
                         <tr className="bg-primary-800/30">
-                          <td colSpan={6} className="px-12 py-3">
+                          <td colSpan={7} className="px-12 py-3">
                             <div className="space-y-2">
                               {row.errors.map((err, i) => (
                                 <div key={i} className="flex items-start gap-2 text-red-400 text-sm">
@@ -642,11 +694,11 @@ export function ImportPreflight({
           {preflightResult && (
             <button
               onClick={handleConfirm}
-              disabled={preflightResult.summary.validRows + preflightResult.summary.warningRows + preflightResult.summary.duplicateRows === 0}
+              disabled={selectedRows.size === 0}
               className="flex items-center gap-2 px-6 py-2.5 rounded-lg btn-primary text-primary-900 font-medium disabled:opacity-50"
             >
               <Download className="w-4 h-4" />
-              确认导入 ({preflightResult.summary.validRows + preflightResult.summary.warningRows + preflightResult.summary.duplicateRows} 条)
+              确认导入 ({selectedRows.size} 条)
             </button>
           )}
         </div>
