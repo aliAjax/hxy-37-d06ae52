@@ -1,4 +1,4 @@
-import type { StoreState } from '../store/useStore';
+import type { StoreState } from '../store/types';
 import type { ScanTask, WorkInfo } from '../types';
 import { DEFAULT_DUPLICATE_RULES, type DuplicateCheckRules } from './duplicateCheck';
 
