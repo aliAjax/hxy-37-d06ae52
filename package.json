@@ -11,7 +11,9 @@
     "check": "tsc -b --noEmit",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "test:migrate": "vitest run src/utils/__tests__/storeMigrate.test.ts",
+    "test:types": "tsc -b --noEmit"
   },
   "dependencies": {
     "clsx": "^2.1.1",

@@ -1,0 +1,77 @@
+{
+  "state": {
+    "materials": [
+      {
+        "id": "mat_v2_001",
+        "title": "新世纪福音战士 原画集 Vol.1",
+        "type": "artbook",
+        "work": "新世纪福音战士",
+        "publisher": "角川书店",
+        "publishDate": "1996-03-01",
+        "pageCount": 128,
+        "pageStart": 1,
+        "pageEnd": 128,
+        "purchaseSource": "日亚海淘",
+        "scanStatus": "completed",
+        "copyrightNote": "© GAINAX",
+        "description": "收录TV版第1-8话的关键原画",
+        "characterIds": ["char_v2_001", "char_v2_002"],
+        "staffIds": ["staff_v2_001"],
+        "pageReferences": [
+          { "id": "pr_v2_001", "pageNumber": 24, "description": "明日香初登场", "characterIds": ["char_v2_001"], "staffIds": [] }
+        ],
+        "createdAt": "2024-01-15T10:00:00Z",
+        "updatedAt": "2024-01-15T10:00:00Z"
+      }
+    ],
+    "characters": [
+      { "id": "char_v2_001", "name": "明日香", "work": "新世纪福音战士" },
+      { "id": "char_v2_002", "name": "绫波丽", "work": "新世纪福音战士" }
+    ],
+    "staff": [
+      { "id": "staff_v2_001", "name": "庵野秀明", "role": "导演", "works": ["新世纪福音战士"] }
+    ],
+    "scanTasks": {
+      "mat_v2_001": {
+        "materialId": "mat_v2_001",
+        "priority": "high",
+        "plannedDate": "2024-06-01",
+        "notes": "用高分辨率扫描仪",
+        "createdAt": "2024-02-01T08:00:00Z",
+        "updatedAt": "2024-02-05T16:00:00Z"
+      }
+    },
+    "wishItems": [
+      {
+        "id": "wish_v2_001",
+        "title": "攻壳机动队 SAC 设定集",
+        "work": "攻壳机动队",
+        "type": "setting",
+        "estimatedPrice": 3500,
+        "purchaseChannel": "日亚",
+        "priority": "medium",
+        "notes": "",
+        "createdAt": "2024-03-01T12:00:00Z",
+        "updatedAt": "2024-03-01T12:00:00Z"
+      }
+    ],
+    "initialized": true,
+    "duplicateRules": {
+      "weights": {
+        "title": 30,
+        "work": 25,
+        "publishDate": 15,
+        "pageCount": 15,
+        "characterIds": 10,
+        "staffIds": 5
+      },
+      "thresholds": {
+        "minMatchReasons": 2,
+        "minSimilarityScore": 40,
+        "titleSimilarity": 0.7,
+        "pageCountDiff": 5
+      }
+    }
+  },
+  "version": 2
+}

@@ -1,0 +1,95 @@
+{
+  "state": {
+    "materials": [
+      {
+        "id": "mat_v1_001",
+        "title": "新世纪福音战士 原画集 Vol.1",
+        "type": "artbook",
+        "work": "新世纪福音战士",
+        "publisher": "角川书店",
+        "publishDate": "1996-03-01",
+        "pageCount": 128,
+        "pageStart": 1,
+        "pageEnd": 128,
+        "purchaseSource": "日亚海淘",
+        "scanStatus": "completed",
+        "copyrightNote": "© GAINAX",
+        "description": "收录TV版第1-8话的关键原画",
+        "characterIds": ["char_v1_001", "char_v1_002"],
+        "staffIds": ["staff_v1_001"],
+        "pageReferences": [],
+        "createdAt": "2024-01-15T10:00:00Z",
+        "updatedAt": "2024-01-15T10:00:00Z"
+      },
+      {
+        "id": "mat_v1_002",
+        "title": "攻壳机动队 分镜集",
+        "type": "storyboard",
+        "work": "攻壳机动队",
+        "publisher": "讲谈社",
+        "publishDate": "1995-11-01",
+        "pageCount": 256,
+        "pageStart": 1,
+        "pageEnd": 256,
+        "purchaseSource": "骏河屋中古",
+        "scanStatus": "partial",
+        "copyrightNote": "© Kodansha / Production I.G",
+        "description": "剧场版全片分镜完整收录",
+        "characterIds": ["char_v1_003"],
+        "staffIds": ["staff_v1_002"],
+        "pageReferences": [],
+        "createdAt": "2024-01-20T14:30:00Z",
+        "updatedAt": "2024-02-10T09:15:00Z"
+      }
+    ],
+    "characters": [
+      { "id": "char_v1_001", "name": "明日香", "work": "新世纪福音战士" },
+      { "id": "char_v1_002", "name": "绫波丽", "work": "新世纪福音战士" },
+      { "id": "char_v1_003", "name": "草薙素子", "work": "攻壳机动队" }
+    ],
+    "staff": [
+      { "id": "staff_v1_001", "name": "庵野秀明", "role": "导演", "works": ["新世纪福音战士"] },
+      { "id": "staff_v1_002", "name": "押井守", "role": "导演", "works": ["攻壳机动队"] }
+    ],
+    "scanTasks": {
+      "mat_v1_002": {
+        "materialId": "mat_v1_002",
+        "priority": "medium",
+        "createdAt": "2024-02-01T08:00:00Z",
+        "updatedAt": "2024-02-05T16:00:00Z"
+      }
+    },
+    "wishItems": [
+      {
+        "id": "wish_v1_001",
+        "title": "文学少女 设定资料集",
+        "work": "文学少女",
+        "type": "setting",
+        "estimatedPrice": 2800,
+        "purchaseChannel": "淘宝代购",
+        "priority": "high",
+        "notes": "等降价再入",
+        "createdAt": "2024-03-01T12:00:00Z",
+        "updatedAt": "2024-03-01T12:00:00Z"
+      }
+    ],
+    "initialized": true,
+    "duplicateRules": {
+      "weights": {
+        "title": 30,
+        "work": 25,
+        "publishDate": 15,
+        "pageCount": 15,
+        "characterIds": 10,
+        "staffIds": 5
+      },
+      "thresholds": {
+        "minMatchReasons": 2,
+        "minSimilarityScore": 40,
+        "titleSimilarity": 0.7,
+        "pageCountDiff": 5
+      }
+    }
+  },
+  "version": 1
+}

@@ -5,6 +5,7 @@ import { sampleMaterials, sampleCharacters, sampleStaff } from '../data/sampleDa
 import { searchMaterials, generateId } from '../utils/search';
 import { validateMaterialData, exportToCSV as exportToCSVUtil } from '../utils/csv';
 import { DuplicateCheckRules, DEFAULT_DUPLICATE_RULES } from '../utils/duplicateCheck';
+import { STORAGE_VERSION, STORAGE_NAME, createMigrate } from '../utils/storeMigrate';
 
 export interface BatchUpdateData {
   scanStatus?: ScanStatus;
@@ -15,7 +16,7 @@ export interface BatchUpdateData {
   appendStaffIds?: string[];
 }
 
-interface StoreState {
+export interface StoreState {
   materials: Material[];
   characters: Character[];
   staff: Staff[];
@@ -669,30 +670,9 @@ export const useStore = create<StoreState>()(
       },
     }),
     {
-      name: 'animation-material-collection',
-      version: 3,
-      migrate: (persistedState: unknown, version: number) => {
-        const state = persistedState as Record<string, unknown>;
-
-        if (version < 2 && state.scanTasks && typeof state.scanTasks === 'object') {
-          const tasks = state.scanTasks as Record<string, Record<string, unknown>>;
-          Object.keys(tasks).forEach((id) => {
-            const task = tasks[id];
-            if (!task.plannedDate) {
-              task.plannedDate = '';
-            }
-            if (!task.notes) {
-              task.notes = '';
-            }
-          });
-        }
-
-        if (version < 3 && !state.workInfos) {
-          state.workInfos = {};
-        }
-
-        return state as unknown as StoreState;
-      },
+      name: STORAGE_NAME,
+      version: STORAGE_VERSION,
+      migrate: createMigrate(),
     }
   )
 );
