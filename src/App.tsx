@@ -15,6 +15,7 @@ import { BatchOrganize } from '@/pages/BatchOrganize';
 import { PageReferenceBrowser } from '@/pages/PageReferenceBrowser';
 import { RelationGraph } from '@/pages/RelationGraph';
 import { BackupCenter } from '@/pages/BackupCenter';
+import { CollectionKanban } from '@/pages/CollectionKanban';
 
 export default function App() {
   return (
@@ -39,6 +40,7 @@ export default function App() {
               <Route path="/batch-organize" element={<BatchOrganize />} />
               <Route path="/page-references" element={<PageReferenceBrowser />} />
               <Route path="/backup" element={<BackupCenter />} />
+              <Route path="/collection-kanban" element={<CollectionKanban />} />
             </Routes>
           </div>
         </main>

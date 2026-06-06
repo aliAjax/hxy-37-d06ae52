@@ -14,7 +14,8 @@ import {
   Layers,
   Hash,
   Network,
-  Database
+  Database,
+  Kanban
 } from 'lucide-react';
 
 const navItems = [
@@ -25,6 +26,7 @@ const navItems = [
   { path: '/page-references', label: '页码标注', icon: Hash },
   { path: '/wishlist', label: '愿望清单', icon: Star },
   { path: '/scan-tasks', label: '扫描任务', icon: Scan },
+  { path: '/collection-kanban', label: '入库流程看板', icon: Kanban },
   { path: '/search', label: '高级检索', icon: Search },
   { path: '/health-check', label: '数据健康检查', icon: Activity },
   { path: '/duplicate-check', label: '重复检查', icon: Copy },
